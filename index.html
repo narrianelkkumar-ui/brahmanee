@@ -69,6 +69,26 @@
         .feature-item b {
             color: var(--primary);
         }
+        /* Video Container Styling */
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            height: 0;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
         .pricing-box {
             text-align: center;
             background: #fff3cd;
@@ -141,6 +161,15 @@
             </div>
         </div>
 
+        <!-- Video Demonstration Section -->
+        <div class="card">
+            <h2>Live Demonstration & Video Tutorial</h2>
+            <p>Watch how the AutoLISP commands and Tippon drawing tools work seamlessly in AutoCAD:</p>
+            <div class="video-container">
+                <iframe src="https://www.youtube.com/embed/6irA-gl7nCU" title="AutoCAD AutoLISP for Land Surveyors" allowfullscreen></iframe>
+            </div>
+        </div>
+
         <!-- Pricing Section -->
         <div class="pricing-box">
             <h2>Annual Commercial License</h2>
@@ -153,7 +182,7 @@
     </div>
 
     <footer>
-        <p>&copy; 2026 Brahmanee Land Survey Tools. Developed for Narri Anel Kkumar (📞 +91 7711889955). All rights reserved.</p>
+        <p>&copy; 2026 Brahmanee Land Survey Tools. Developed by Narri Anel Kkumar (📞 +91 7711889955). All rights reserved.</p>
     </footer>
 
 </body>
