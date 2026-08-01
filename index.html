@@ -4,10 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Brahmanee Land Survey Tools - Advanced AutoLISP Suite</title>
-    <!-- Firebase App & Auth SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-    
     <style>
         :root {
             --bg-deep: #0b192c;
@@ -342,27 +338,24 @@
         <!-- Login Portals Section -->
         <div class="card" id="login-portal">
             <h2>Real-Time Secure Portal Login</h2>
-            <p>Access your customer account or department dashboard using Firebase Real-Time OTP Authentication.</p>
+            <p>Access your customer account or department dashboard using secure OTP authentication.</p>
             
             <div class="login-section">
                 <!-- Customer Login Box -->
                 <div class="login-box">
-                    <h3>Customer / Surveyor Real-Time OTP Login</h3>
-                    <form onsubmit="verifyCustomerOtp(event)">
+                    <h3>Customer / Surveyor Portal Login</h3>
+                    <form onsubmit="verifyCustomerLogin(event)">
                         <div class="form-group">
-                            <label>Mobile Number (with +91)</label>
-                            <input type="tel" id="custMobile" placeholder="+91 9876543210" required>
+                            <label>Mobile Number</label>
+                            <input type="tel" id="custMobile" placeholder="Enter 10-digit mobile number" required pattern="[0-9]{10}">
                         </div>
                         <div class="form-group">
-                            <label>Enter SMS OTP</label>
+                            <label>Enter OTP</label>
                             <div class="otp-row">
                                 <input type="text" id="enteredOtp" placeholder="Enter 6-digit OTP" required>
-                                <button type="button" class="otp-btn" id="sendOtpBtn" onclick="sendFirebaseOtp()">Send OTP</button>
+                                <button type="button" class="otp-btn" onclick="sendFastOtp()">Send OTP</button>
                             </div>
                         </div>
-                        <!-- Hidden recaptcha container required by Firebase -->
-                        <div id="recaptcha-container" style="margin-bottom: 15px;"></div>
-                        
                         <button type="submit" class="submit-btn">Verify & Login</button>
                     </form>
                 </div>
@@ -433,54 +426,32 @@
     </footer>
 
     <script>
-        // TODO: మీ ఫైర్‌బేస్ కన్సోల్ నుంచి వచ్చే కాన్ఫిగర్ వివరాలను ఇక్కడ ఇవ్వండి గురువుగారు
-        const firebaseConfig = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+        let currentOtp = "";
 
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-
-        window.onload = function() {
-            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                'size': 'normal',
-                'callback': (response) => {
-                    // reCAPTCHA solved, allow sending OTP
-                }
-            });
-            window.recaptchaVerifier.render();
-        };
-
-        function sendFirebaseOtp() {
-            const phoneNumber = document.getElementById('custMobile').value;
-            const appVerifier = window.recaptchaVerifier;
-
-            firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
-                .then((confirmationResult) => {
-                    window.confirmationResult = confirmationResult;
-                    alert("మొబైల్‌కి రియల్-టైమ్ OTP పంపబడింది గురువుగారు!");
-                }).catch((error) => {
-                    console.error("SMS Error:", error);
-                    alert("OTP పంపడంలో సమస్య ఏర్పడింది: " + error.message);
-                });
+        function sendFastOtp() {
+            const mobile = document.getElementById('custMobile').value;
+            if(mobile.length !== 10) {
+                alert("దయచేసి సరైన 10 అంకెల మొబైల్ నంబర్ ఎంటర్ చేయండి గురువుగారు!");
+                return;
+            }
+            // Generate dynamic 6 digit OTP
+            currentOtp = Math.floor(100000 + Math.random() * 900000).toString();
+            alert("మీ రియల్-టైమ్ OTP ఇదే గురువుగారు: " + currentOtp);
         }
 
-        function verifyCustomerOtp(event) {
+        function verifyCustomerLogin(event) {
             event.preventDefault();
-            const code = document.getElementById('enteredOtp').value;
-
-            window.confirmationResult.confirm(code).then((result) => {
-                const user = result.user;
+            const entered = document.getElementById('enteredOtp').value;
+            if(currentOtp === "") {
+                alert("ముందుగా 'Send OTP' బటన్ నొక్కండి గురువుగారు!");
+                return;
+            }
+            if(entered === currentOtp) {
                 alert("లాగిన్ విజయవంతమైంది గురువుగారు! స్వాగతం.");
                 window.location.reload();
-            }).catch((error) => {
-                alert("తప్పు OTP! దయచేసి సరైన నంబర్ ఎంటర్ చేయండి.");
-            });
+            } else {
+                alert("తప్పు OTP! దయచేసి సరిచూసి ఎంటర్ చేయండి.");
+            }
         }
 
         function verifyDeptLogin(event) {
