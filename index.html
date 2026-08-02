@@ -1,74 +1,54 @@
-<!-- ఫైర్‌బేస్ స్క్రిప్ట్స్ -->
-<script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth-compat.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-<div id="login-container" style="max-width: 400px; margin: auto; padding: 20px; font-family: Arial;">
-    <h2>Brahmanee.com Login</h2>
-    
-    <!-- మొబైల్ నెంబర్ ఎంటర్ చేసే ఫారమ్ -->
-    <div id="phone-auth-box">
-        <label>Mobile Number (with +91):</label><br>
-        <input type="text" id="phoneNumber" placeholder="+919876543210" style="width: 100%; padding: 8px; margin: 10px 0;"><br>
-        <button id="sign-in-button" onclick="sendOTP()" style="background: blue; color: white; padding: 10px 20px; border: none; cursor: pointer;">Send OTP</button>
-    </div>
+  // మీ ఫైర్‌బేస్ కన్సోల్ నుండి తీసుకున్న సరైన కాన్ఫిగరేషన్
+  const firebaseConfig = {
+    apiKey: "AIzaSyAzw4hSem8AsfahZKpK_GMgXpKVkM3L16S4",
+    authDomain: "brahmanee-cb903.firebaseapp.com",
+    projectId: "brahmanee-cb903",
+    storageBucket: "brahmanee-cb903.appspot.com",
+    messagingSenderId: "416826587585",
+    appId: "1:416826587585:web:b349764f17f0f6b4bfa0d8"
+  };
 
-    <!-- OTP వెరిఫికేషన్ ఫారమ్ -->
-    <div id="otp-auth-box" style="display: none; margin-top: 20px;">
-        <label>Enter OTP:</label><br>
-        <input type="text" id="otpCode" placeholder="Enter 6-digit OTP" style="width: 100%; padding: 8px; margin: 10px 0;"><br>
-        <button onclick="verifyOTP()" style="background: green; color: white; padding: 10px 20px; border: none; cursor: pointer;">Verify OTP & Login</button>
-    </div>
+  // ఫైర్‌బేస్ ఇనిషియలైజేషన్
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
 
-    <div id="recaptcha-container"></div>
-</div>
+  // రీకాప్చా సెటప్ (OTP కోసం)
+  window.onload = function() {
+    window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+      'size': 'invisible'
+    });
+  };
 
-<script>
-    // ఫైర్‌బేస్ కాన్ఫిగరేషన్ (మీ ప్రాజెక్ట్ వివరాలు ఇక్కడ వస్తాయి)
-    const firebaseConfig = {
-        apiKey: "YOUR_FIREBASE_API_KEY",
-        authDomain: "brahmanee.firebaseapp.com",
-        projectId: "brahmanee",
-        storageBucket: "brahmanee.appspot.com",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-    };
+  // OTP పంపే ఫంక్షన్
+  window.sendOTP = function() {
+    const phoneNumber = document.getElementById('phoneNo').value;
+    const appVerifier = window.recaptchaVerifier;
 
-    // ఫైర్‌బేస్ ఇనిషియలైజేషన్
-    firebase.initializeApp(firebaseConfig);
+    signInWithPhoneNumber(auth, phoneNumber, appVerifier)
+      .then((confirmationResult) => {
+        window.confirmationResult = confirmationResult;
+        document.getElementById('phone-auth-box').style.display = 'none';
+        document.getElementById('otp-auth-box').style.display = 'block';
+        alert("OTP సక్సెస్‌ఫుల్‌గా పంపబడింది!");
+      }).catch((error) => {
+        console.error("OTP పంపడంలో లోపం:", error);
+        alert("OTP పంపడం కుదరలేదు. నంబర్ సరిచూసుకోండి.");
+      });
+  }
 
-    // రీకాప్చా సెటప్
-    window.onload = function() {
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': 'invisible'
-        });
-    };
-
-    // OTP పంపే ఫంక్షన్
-    function sendOTP() {
-        const phoneNumber = document.getElementById('phoneNumber').value;
-        const appVerifier = window.recaptchaVerifier;
-
-        firebase.auth().signInWithPhoneNumber(phoneNumber, appVerifier)
-            .then(function (confirmationResult) {
-                window.confirmationResult = confirmationResult;
-                alert("OTP sent successfully to " + phoneNumber);
-                document.getElementById('phone-auth-box').style.display = 'none';
-                document.getElementById('otp-auth-box').style.display = 'block';
-            }).catch(function (error) {
-                console.error("Error during sending OTP: ", error);
-                alert("Error sending OTP. Please check the number.");
-            });
-    }
-
-    // OTP వెరిఫై చేసే ఫంక్షన్
-    function verifyOTP() {
-        const code = document.getElementById('otpCode').value;
-        window.confirmationResult.confirm(code).then(function (result) {
-            const user = result.user;
-            alert("Login Successful! Welcome: " + user.phoneNumber);
-            // ఇక్కడ యూజర్ లాగిన్ అయ్యాక అడ్మిన్ అప్రూవల్ పేజీకి లేదా డాష్‌బోర్డ్‌కి పంపవచ్చు
-        }).catch(function (error) {
-            alert("Invalid OTP! Please try again.");
-        });
-    }
+  // OTP వెరిఫై చేసే ఫంక్షన్
+  window.verifyOTP = function() {
+    const code = document.getElementById('otpCode').value;
+    window.confirmationResult.confirm(code).then((result) => {
+      const user = result.user;
+      alert("లాగిన్ విజయవంతమైంది! నంబర్: " + user.phoneNumber);
+      // ఇక్కడ లాగిన్ తర్వాత వెళ్ళవలసిన పేజీని సెట్ చేసుకోవచ్చు
+    }).catch((error) => {
+      alert("తప్పు OTP! దయచేసి మళ్లీ ప్రయత్నించండి.");
+    });
+  }
 </script>
