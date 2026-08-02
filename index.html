@@ -24,7 +24,7 @@
         <!-- ఫోన్ నంబర్ బాక్స్ -->
         <div id="phone-auth-box">
             <p>మీ ఫోన్ నంబర్ ఎంటర్ చేయండి</p>
-            <input type="tel" id="phoneNo" placeholder="10 అంకెల నంబర్ (ఉదా: 7207387919)">
+            <input type="tel" id="phoneNo" placeholder="10 అంకెల నంబర్">
             <p class="error-text" id="phoneError"></p>
             <button id="sendOtpBtn" onclick="sendOTP()">OTP పంపు</button>
         </div>
@@ -35,7 +35,7 @@
             <input type="text" id="otpCode" placeholder="6 అంకెల OTP" maxlength="6">
             <p class="error-text" id="otpError"></p>
             <button id="verifyOtpBtn" onclick="verifyOTP()">వెరిఫై చేయి</button>
-            <button class="link-btn" onclick="backToPhone()">← నంబర్ మార్చాలా? వెనక్కి వెళ్ళండి</button>
+            <button class="link-btn" onclick="backToPhone()">← నంబర్ మార్చాలా?</button>
         </div>
 
         <!-- రీకాప్చా కోసం కంటైనర్ -->
@@ -119,14 +119,7 @@
             console.error("OTP పంపడంలో లోపం:", error);
             sendBtn.disabled = false;
             sendBtn.textContent = "OTP పంపు";
-
-            if (error.code === 'auth/invalid-phone-number') {
-              phoneErrorEl.textContent = "ఫోన్ నంబర్ ఫార్మాట్ తప్పుగా ఉంది.";
-            } else if (error.code === 'auth/too-many-requests') {
-              phoneErrorEl.textContent = "చాలా ప్రయత్నాలు జరిగాయి. కొంతసేపు ఆగి ప్రయత్నించండి.";
-            } else {
-              phoneErrorEl.textContent = "OTP పంపడం కుదరలేదు. మళ్లీ ప్రయత్నించండి.";
-            }
+            phoneErrorEl.textContent = "OTP పంపడం కుదరలేదు: " + error.message;
 
             if (window.recaptchaVerifier) {
               window.recaptchaVerifier.clear();
@@ -150,7 +143,7 @@
         }
 
         if (!window.confirmationResult) {
-          otpErrorEl.textContent = "సెషన్ ముగిసింది. దయచేసి మళ్లీ OTP పంపండి.";
+          otpErrorEl.textContent = "సెషన్ ముగిసింది. మళ్లీ OTP పంపండి.";
           return;
         }
 
@@ -166,12 +159,7 @@
           console.error("OTP verify లోపం:", error);
           verifyBtn.disabled = false;
           verifyBtn.textContent = "వెరిఫై చేయి";
-
-          if (error.code === 'auth/code-expired') {
-            otpErrorEl.textContent = "OTP గడువు ముగిసింది. మళ్లీ పంపండి.";
-          } else {
-            otpErrorEl.textContent = "తప్పు OTP! దయచేసి సరిగ్గా ఎంటర్ చేయండి.";
-          }
+          otpErrorEl.textContent = "తప్పు OTP లేదా గడువు ముగిసింది.";
         });
       }
     </script>
