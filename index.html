@@ -11,7 +11,7 @@
         button { background-color: #4CAF50; color: white; padding: 10px; border: none; border-radius: 5px; width: 100%; cursor: pointer; font-size: 16px; }
         button:hover { background-color: #45a049; }
         button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
-        .link-btn { background: none; border: none; color: #4CAF50; text-decoration: underline; width: auto; padding: 5px; font-size: 14px; margin-top: 5px; cursor: pointer; }
+        .link-btn { background: none; border: none; color: #4CAF50; text-decoration: underline; width: auto; padding: 5px; font-size: 14px; margin-top: 5px; }
         .link-btn:hover { background: none; color: #2e7031; }
         .error-text { color: #d32f2f; font-size: 13px; min-height: 16px; margin: 0; }
     </style>
@@ -24,18 +24,18 @@
         <!-- ఫోన్ నంబర్ బాక్స్ -->
         <div id="phone-auth-box">
             <p>మీ ఫోన్ నంబర్ ఎంటర్ చేయండి</p>
-            <input type="tel" id="phoneNo" placeholder="10 అంకెల నంబర్">
+            <input type="tel" id="phoneNo" placeholder="10 అంకెల నంబర్ (ఉదా: 9876543210)">
             <p class="error-text" id="phoneError"></p>
             <button id="sendOtpBtn" onclick="sendOTP()">OTP పంపు</button>
         </div>
 
-        <!-- OTP ఎంటర్ చేసే బాక్స్ -->
+        <!-- OTP ఎంటర్ చేసే బాక్స్ (మొదట కనిపించదు) -->
         <div id="otp-auth-box" style="display: none;">
             <p>OTP కోడ్ ఎంటర్ చేయండి</p>
             <input type="text" id="otpCode" placeholder="6 అంకెల OTP" maxlength="6">
             <p class="error-text" id="otpError"></p>
             <button id="verifyOtpBtn" onclick="verifyOTP()">వెరిఫై చేయి</button>
-            <button class="link-btn" onclick="backToPhone()">← నంబర్ మార్చాలా?</button>
+            <button class="link-btn" onclick="backToPhone()">← నంబర్ మార్చాలా? వెనక్కి వెళ్ళండి</button>
         </div>
 
         <!-- రీకాప్చా కోసం కంటైనర్ -->
@@ -48,32 +48,30 @@
       import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
       const firebaseConfig = {
-        apiKey: "AIzaSyAzw4hSem8AsfahZKpK_GMgXpKVkM3L16S4",
+        apiKey: "AIzaSyDDp5gDSdSA-Ns35Cm0hst1P9DAgWXVSpg",
         authDomain: "brahmanee-cb903.firebaseapp.com",
         projectId: "brahmanee-cb903",
-        storageBucket: "brahmanee-cb903.appspot.com",
-        messagingSenderId: "416826587585",
-        appId: "1:416826587585:web:b349764f17f0f6b4bfa0d8"
+        storageBucket: "brahmanee-cb903.firebasestorage.app",
+        messagingSenderId: "616828575885",
+        appId: "1:616828575885:web:b34b9704f17109cf8d4dd0"
       };
 
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
 
+      // Recaptcha ని ఒక function లో పెట్టాము, ఎందుకంటే error వచ్చినప్పుడు
+      // మళ్లీ కొత్తగా create చేయాల్సి రావొచ్చు (widget "used up" అవ్వకుండా)
       function setupRecaptcha() {
-        try {
-          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible'
-          });
-          window.recaptchaVerifier.render();
-        } catch (e) {
-          console.error("Recaptcha setup error:", e);
-        }
+        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          'size': 'invisible'
+        });
       }
 
       window.onload = function() {
         setupRecaptcha();
       };
 
+      // --- Helper: UI reset for phone box ---
       window.backToPhone = function() {
         document.getElementById('otp-auth-box').style.display = 'none';
         document.getElementById('phone-auth-box').style.display = 'block';
@@ -94,16 +92,19 @@
           return;
         }
 
+        // స్పేసులు, డాష్‌లు తీసివేయండి
         phoneNumber = phoneNumber.replace(/[\s-]/g, '');
 
+        // +91 లేకపోతే auto add చేయండి (India default). ఇప్పటికే + తో మొదలైతే అలాగే ఉంచండి.
         if (!phoneNumber.startsWith('+')) {
-          phoneNumber = phoneNumber.replace(/^0+/, '');
+          phoneNumber = phoneNumber.replace(/^0+/, ''); // leading zero తీసివేయండి
           phoneNumber = '+91' + phoneNumber;
         }
 
+        // సాధారణ E.164 format check (కనీసం 10 అంకెలు + country code)
         const phoneRegex = /^\+[1-9]\d{9,14}$/;
         if (!phoneRegex.test(phoneNumber)) {
-          phoneErrorEl.textContent = "సరైన 10 అంకెల నంబర్ ఎంటర్ చేయండి.";
+          phoneErrorEl.textContent = "సరైన ఫోన్ నంబర్ ఎంటర్ చేయండి (10 అంకెలు).";
           return;
         }
 
@@ -124,10 +125,19 @@
             console.error("OTP పంపడంలో లోపం:", error);
             sendBtn.disabled = false;
             sendBtn.textContent = "OTP పంపు";
-            phoneErrorEl.textContent = "లోపం: " + error.code;
 
+            if (error.code === 'auth/invalid-phone-number') {
+              phoneErrorEl.textContent = "ఫోన్ నంబర్ ఫార్మాట్ తప్పుగా ఉంది.";
+            } else if (error.code === 'auth/too-many-requests') {
+              phoneErrorEl.textContent = "చాలా ప్రయత్నాలు జరిగాయి. కొంతసేపు తర్వాత మళ్లీ ప్రయత్నించండి.";
+            } else {
+              phoneErrorEl.textContent = "OTP పంపడం కుదరలేదు. మళ్లీ ప్రయత్నించండి.";
+            }
+
+            // ముఖ్యం: విఫలమైన తర్వాత అదే recaptcha widget మళ్లీ వాడలేం,
+            // కాబట్టి దాన్ని క్లియర్ చేసి కొత్తది తయారు చేయాలి.
             if (window.recaptchaVerifier) {
-              try { window.recaptchaVerifier.clear(); } catch(err) {}
+              window.recaptchaVerifier.clear();
             }
             document.getElementById('recaptcha-container').innerHTML = '';
             setupRecaptcha();
@@ -148,7 +158,7 @@
         }
 
         if (!window.confirmationResult) {
-          otpErrorEl.textContent = "సెషన్ ముగిసింది. మళ్లీ OTP పంపండి.";
+          otpErrorEl.textContent = "సెషన్ ముగిసింది. దయచేసి మళ్లీ OTP పంపండి.";
           return;
         }
 
@@ -164,7 +174,12 @@
           console.error("OTP verify లోపం:", error);
           verifyBtn.disabled = false;
           verifyBtn.textContent = "వెరిఫై చేయి";
-          otpErrorEl.textContent = "తప్పు OTP లేదా గడువు ముగిసింది.";
+
+          if (error.code === 'auth/code-expired') {
+            otpErrorEl.textContent = "OTP గడువు ముగిసింది. మళ్లీ పంపండి.";
+          } else {
+            otpErrorEl.textContent = "తప్పు OTP! దయచేసి మళ్లీ ప్రయత్నించండి.";
+          }
         });
       }
     </script>
