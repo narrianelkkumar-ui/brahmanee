@@ -60,9 +60,14 @@
       const auth = getAuth(app);
 
       function setupRecaptcha() {
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          'size': 'invisible'
-        });
+        try {
+          window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            'size': 'invisible'
+          });
+          window.recaptchaVerifier.render();
+        } catch (e) {
+          console.error("Recaptcha setup error:", e);
+        }
       }
 
       window.onload = function() {
@@ -119,10 +124,10 @@
             console.error("OTP పంపడంలో లోపం:", error);
             sendBtn.disabled = false;
             sendBtn.textContent = "OTP పంపు";
-            phoneErrorEl.textContent = "OTP పంపడం కుదరలేదు: " + error.message;
+            phoneErrorEl.textContent = "లోపం: " + error.code;
 
             if (window.recaptchaVerifier) {
-              window.recaptchaVerifier.clear();
+              try { window.recaptchaVerifier.clear(); } catch(err) {}
             }
             document.getElementById('recaptcha-container').innerHTML = '';
             setupRecaptcha();
