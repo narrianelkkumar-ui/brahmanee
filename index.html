@@ -6,155 +6,321 @@
 <title>Brahmanee Land Survey Tools — Advanced AutoLISP Suite</title>
 <meta name="description" content="Brahmanee Land Survey Tools - Professional AutoLISP suite with 13 commands for Tippon drawing, coordinates tables, area calculation & dual-unit dimensioning inside AutoCAD/Civil 3D. Built for Telangana land surveyors.">
 <meta name="keywords" content="AutoLISP land survey, Tippon drawing AutoCAD, Telangana revenue survey software, Bhumithi alternative, cadastral AutoCAD tools, survey coordinates table LISP">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%230b1f1a'/%3E%3Ctext x='50' y='68' font-size='54' text-anchor='middle' fill='%2300d9a3' font-family='Arial' font-weight='bold'%3EB%3C/text%3E%3C/svg%3E">
+<meta property="og:title" content="Brahmanee Land Survey Tools — Advanced AutoLISP Suite">
+<meta property="og:description" content="13 professional AutoLISP commands for land surveyors - Tippon drawing, coordinates tables, area labels & more, built for Telangana revenue survey workflows.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%2317273a' stroke='%23ab7c2e' stroke-width='4'/%3E%3Ctext x='50' y='66' font-size='50' text-anchor='middle' fill='%23ab7c2e' font-family='Georgia' font-weight='bold'%3EB%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Telugu:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"Product","name":"Brahmanee Land Survey Tools","description":"13-command AutoLISP suite for cadastral and revenue land survey drafting in AutoCAD/Civil 3D.","brand":{"@type":"Brand","name":"Brahmanee"},"offers":{"@type":"Offer","price":"15000","priceCurrency":"INR","availability":"https://schema.org/InStock"}}
 </script>
 <style>
   :root{
-    --bg:#f7faf9;
-    --panel:#ffffff;
-    --line:#e2e8e6;
-    --ink:#0b1f1a;
-    --slate:#4a5a56;
-    --laser:#00b389;
-    --laser-dim:#e3f7f1;
-    --flag:#e0722b;
-    --text:#1c2624;
+    --ink:#17273a;
+    --ink-2:#0d1720;
+    --paper:#f6f2e7;
+    --paper-line:#e2d9c2;
+    --brass:#ab7c2e;
+    --brass-light:#cf9f42;
+    --rust:#9c3d28;
+    --text:#20222a;
+    --muted:#5c6673;
+    --ok:#3f6b4a;
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
   body{
-    margin:0; background:var(--bg); color:var(--text);
-    font-family:'Space Grotesk', 'Noto Sans Telugu', sans-serif;
-    line-height:1.65; font-size:16.5px;
+    margin:0;
+    background:var(--paper);
+    color:var(--text);
+    font-family:'Source Serif 4', 'Noto Sans Telugu', serif;
+    font-size:17px;
+    line-height:1.65;
   }
-  .te{ font-family:'Noto Sans Telugu','Space Grotesk',sans-serif; }
-  h1,h2,h3{ font-family:'Space Grotesk', 'Noto Sans Telugu', sans-serif; font-weight:700; color:var(--ink); letter-spacing:-0.01em; }
-  .mono{ font-family:'IBM Plex Mono', monospace; }
+  .te{ font-family:'Noto Sans Telugu','Source Serif 4',serif; }
+  h1,h2,h3,.display{
+    font-family:'Big Shoulders Display','Noto Sans Telugu',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:0.02em;
+    font-weight:800;
+    color:var(--ink);
+    line-height:1.02;
+  }
+  .mono{ font-family:'JetBrains Mono', monospace; }
 
-  .navbar{ position:sticky; top:0; z-index:200; background:rgba(247,250,249,0.92); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
-  .navbar-inner{ max-width:1180px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; padding:16px 24px; }
-  .navbar-brand{ font-weight:700; font-size:1.15rem; color:var(--ink); text-decoration:none; display:flex; align-items:center; gap:8px; }
-  .navbar-brand .dot{ width:9px; height:9px; border-radius:50%; background:var(--laser); display:inline-block; box-shadow:0 0 0 4px var(--laser-dim); }
-  .navbar-links{ display:flex; gap:28px; flex-wrap:wrap; }
-  .navbar-links a{ font-family:'IBM Plex Mono', monospace; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--slate); text-decoration:none; }
-  .navbar-links a:hover{ color:var(--laser); }
-  @media (max-width:680px){ .navbar-inner{flex-direction:column; gap:10px;} .navbar-links{justify-content:center; gap:16px;} }
+  /* ---------- grid texture ---------- */
+  .grid-bg{
+    background-image:
+      linear-gradient(rgba(207,159,66,0.18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(207,159,66,0.18) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
 
-  /* ---- hero: contour topo lines ---- */
+  /* ---------- nav ---------- */
+  .navbar{
+    position:sticky; top:0; z-index:200;
+    background:var(--paper);
+    border-bottom:2px solid var(--brass);
+  }
+  .navbar-inner{
+    max-width:1180px; margin:0 auto;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 24px;
+  }
+  .navbar-brand{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-weight:800; letter-spacing:0.05em; text-transform:uppercase;
+    color:var(--ink); text-decoration:none; font-size:1.35rem;
+  }
+  .navbar-brand span{color:var(--brass);}
+  .navbar-links{display:flex; gap:26px; flex-wrap:wrap;}
+  .navbar-links a{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.82rem; letter-spacing:0.04em; text-transform:uppercase;
+    color:var(--muted); text-decoration:none; font-weight:500;
+  }
+  .navbar-links a:hover{ color:var(--brass); }
+  @media (max-width:680px){
+    .navbar-inner{flex-direction:column; gap:10px;}
+    .navbar-links{justify-content:center; gap:16px;}
+  }
+
+  /* ---------- hero ---------- */
   header.hero{
-    position:relative; background:var(--ink); color:#eaf5f1; padding:76px 24px 64px; overflow:hidden;
+    position:relative;
+    background:linear-gradient(160deg, var(--ink), var(--ink-2));
+    color:#eef1f4;
+    padding:70px 24px 60px;
+    overflow:hidden;
   }
-  .contours{ position:absolute; inset:0; opacity:0.5; }
-  .hero-inner{ position:relative; max-width:880px; margin:0 auto; text-align:center; }
-  .readout-label{ font-family:'IBM Plex Mono', monospace; font-size:0.78rem; letter-spacing:0.14em; text-transform:uppercase; color:var(--laser); margin-bottom:16px; }
-  header.hero h1{ font-size:clamp(2.3rem,5.6vw,3.6rem); color:#fff; margin:0 0 16px; letter-spacing:-0.02em; }
-  header.hero .sub{ font-size:1.1rem; color:#b9cbc5; max-width:600px; margin:0 auto; }
-  .dev-credit{ font-family:'IBM Plex Mono', monospace; font-size:0.78rem; color:#7fa89b; margin-top:16px; }
-
-  /* LCD-style readout stats */
-  .readout-row{ display:flex; flex-wrap:wrap; justify-content:center; gap:16px; margin-top:36px; }
-  .readout{
-    background:#0f2921; border:1px solid #1d4438; padding:16px 26px; min-width:140px;
-    text-align:left; position:relative;
+  header.hero::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      linear-gradient(rgba(207,159,66,0.14) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(207,159,66,0.14) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events:none;
   }
-  .readout::before{ content:"●"; color:var(--laser); font-size:0.55rem; position:absolute; top:10px; right:12px; }
-  .readout b{ font-family:'IBM Plex Mono', monospace; font-size:1.9rem; color:var(--laser); display:block; letter-spacing:0.01em; }
-  .readout span{ font-family:'IBM Plex Mono', monospace; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.06em; color:#7fa89b; }
-
-  .container{ max-width:1180px; margin:0 auto; padding:60px 24px; }
-  .panel{
-    background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--laser);
-    padding:36px 38px; margin-bottom:32px; scroll-margin-top:90px;
+  .hero-inner{ position:relative; max-width:900px; margin:0 auto; text-align:center; }
+  .eyebrow{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.78rem; letter-spacing:0.16em; text-transform:uppercase;
+    color:var(--brass-light); margin-bottom:14px;
   }
-  .tag{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--laser); display:block; margin-bottom:8px; }
-  h2{ font-size:1.75rem; margin:0 0 20px; }
+  header.hero h1{
+    font-size:clamp(2.4rem, 6vw, 4rem);
+    color:#f6f2e7;
+    margin:0 0 14px;
+  }
+  header.hero .sub{
+    font-family:'Source Serif 4', serif;
+    font-size:1.15rem; color:#c9d2da; max-width:620px; margin:0 auto;
+  }
+  .dev-credit{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.8rem; color:var(--brass-light); margin-top:18px; letter-spacing:0.03em;
+  }
 
-  .cmd-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:12px; margin-top:22px; }
-  .cmd-item{ display:flex; gap:14px; align-items:flex-start; background:var(--laser-dim); padding:14px 16px; border-radius:6px; }
-  .cmd-code{ font-family:'IBM Plex Mono', monospace; font-weight:700; color:var(--laser); background:#fff; border:1px solid #bfe9db; padding:2px 8px; border-radius:4px; font-size:0.85rem; white-space:nowrap; }
-  .cmd-item b{ color:var(--ink); }
+  /* benchmark stamp medallions */
+  .stamp-row{
+    display:flex; flex-wrap:wrap; justify-content:center; gap:22px;
+    margin-top:34px;
+  }
+  .stamp{
+    width:118px; height:118px; border-radius:50%;
+    border:3px solid var(--brass);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 35% 30%, rgba(207,159,66,0.16), transparent 70%);
+    position:relative;
+  }
+  .stamp::before{
+    content:"";
+    position:absolute; inset:6px;
+    border:1px dashed rgba(207,159,66,0.55);
+    border-radius:50%;
+  }
+  .stamp b{
+    font-family:'Big Shoulders Display', sans-serif;
+    font-size:1.7rem; color:var(--brass-light); font-weight:800; line-height:1;
+  }
+  .stamp span{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.62rem; letter-spacing:0.08em; text-transform:uppercase;
+    color:#c9d2da; margin-top:4px; text-align:center; padding:0 8px;
+  }
 
-  table.spec{ width:100%; border-collapse:collapse; margin-top:18px; }
-  table.spec th{ font-family:'IBM Plex Mono', monospace; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; text-align:left; background:var(--ink); color:#eaf5f1; padding:12px 14px; }
-  table.spec td{ padding:12px 14px; border-bottom:1px solid var(--line); }
-  table.spec tr:nth-child(even) td{ background:#fafcfb; }
-  .foot-note{ font-family:'IBM Plex Mono', monospace; font-size:0.74rem; color:var(--slate); margin-top:12px; }
+  /* ---------- title-block card ---------- */
+  .container{ max-width:1180px; margin:0 auto; padding:56px 24px; }
+  .tb-card{
+    position:relative;
+    background:#fffdf7;
+    border:1.5px solid var(--paper-line);
+    padding:36px 38px;
+    margin-bottom:46px;
+    scroll-margin-top:90px;
+  }
+  .tb-card::before, .tb-card::after,
+  .tb-corner-b::before, .tb-corner-b::after{
+    content:""; position:absolute; width:18px; height:18px;
+    border-color:var(--brass); border-style:solid; border-width:0;
+  }
+  .tb-card::before{ top:-1px; left:-1px; border-top-width:3px; border-left-width:3px; }
+  .tb-card::after{ top:-1px; right:-1px; border-top-width:3px; border-right-width:3px; }
+  .tb-corner-b::before{ bottom:-1px; left:-1px; border-bottom-width:3px; border-left-width:3px; }
+  .tb-corner-b::after{ bottom:-1px; right:-1px; border-bottom-width:3px; border-right-width:3px; }
 
+  .section-tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size:0.72rem; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--brass); margin-bottom:8px; display:block;
+  }
+  h2{ font-size:1.9rem; margin:0 0 20px; padding-bottom:10px; border-bottom:2px solid var(--paper-line); }
+
+  /* command index (point list) */
+  .point-list{ display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:22px; }
+  .point-item{
+    display:flex; gap:14px; align-items:flex-start;
+    background:var(--paper); border-left:3px solid var(--brass);
+    padding:14px 16px;
+  }
+  .point-num{
+    font-family:'JetBrains Mono', monospace; font-weight:700; color:var(--brass);
+    font-size:0.95rem; min-width:34px;
+  }
+  .point-item b{ color:var(--ink); }
+
+  /* comparison ledger table */
+  table.ledger{ width:100%; border-collapse:collapse; margin-top:18px; }
+  table.ledger th{
+    font-family:'JetBrains Mono', monospace; font-size:0.78rem; text-transform:uppercase;
+    letter-spacing:0.05em; text-align:left; background:var(--ink); color:#f0ead9;
+    padding:12px 14px;
+  }
+  table.ledger td{ padding:12px 14px; border-bottom:1px solid var(--paper-line); }
+  table.ledger tr:nth-child(even) td{ background:#fbf8f0; }
+  .foot-note{ font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:var(--muted); margin-top:12px; }
+
+  /* developer */
   .dev-section{ display:flex; gap:22px; align-items:flex-start; flex-wrap:wrap; }
-  .dev-avatar{ width:74px; height:74px; border-radius:10px; background:var(--ink); color:var(--laser); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:1.05rem; flex-shrink:0; }
+  .dev-avatar{
+    width:76px; height:76px; border-radius:50%;
+    border:3px solid var(--brass);
+    background:var(--ink); color:var(--brass-light);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'JetBrains Mono', monospace; font-weight:700; font-size:1.1rem; flex-shrink:0;
+  }
 
-  .version-item{ display:flex; gap:16px; padding:13px 0; border-bottom:1px solid var(--line); }
+  /* version history */
+  .version-item{ display:flex; gap:16px; padding:13px 0; border-bottom:1px solid var(--paper-line); }
   .version-item:last-child{ border-bottom:none; }
-  .version-tag{ font-family:'IBM Plex Mono', monospace; font-size:0.7rem; background:var(--laser-dim); color:var(--laser); padding:4px 12px; height:fit-content; white-space:nowrap; border-radius:20px; text-transform:uppercase; }
+  .version-tag{
+    font-family:'JetBrains Mono', monospace; font-size:0.72rem; letter-spacing:0.05em;
+    background:var(--ink); color:var(--brass-light); padding:4px 12px; height:fit-content;
+    white-space:nowrap; text-transform:uppercase;
+  }
 
-  .comparison-grid{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:20px; }
-  .comparison-item{ background:var(--bg); border:1px solid var(--line); padding:22px; border-radius:8px; text-align:center; }
-  .comparison-item .lab{ font-family:'IBM Plex Mono', monospace; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.04em; }
-  .comparison-item.before .lab{ color:var(--flag); }
-  .comparison-item.after .lab{ color:var(--laser); }
-  .comparison-item .time{ font-family:'IBM Plex Mono', monospace; font-size:2.2rem; font-weight:700; margin:8px 0; }
-  .comparison-item.before .time{ color:var(--flag); }
-  .comparison-item.after .time{ color:var(--laser); }
+  /* before/after */
+  .comparison-grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; }
+  .comparison-item{ background:var(--paper); border:1px solid var(--paper-line); padding:22px; text-align:center; }
+  .comparison-item .tag{ font-family:'JetBrains Mono', monospace; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.05em; }
+  .comparison-item.before .tag{ color:var(--rust); }
+  .comparison-item.after .tag{ color:var(--ok); }
+  .comparison-item .time{ font-family:'Big Shoulders Display', sans-serif; font-size:2.4rem; font-weight:800; margin:8px 0; }
+  .comparison-item.before .time{ color:var(--rust); }
+  .comparison-item.after .time{ color:var(--ok); }
   @media (max-width:620px){ .comparison-grid{ grid-template-columns:1fr; } }
 
   .trust-strip{ display:flex; flex-wrap:wrap; justify-content:center; gap:40px; margin-top:26px; text-align:center; }
-  .trust-strip .stat b{ display:block; font-family:'IBM Plex Mono', monospace; font-size:1.8rem; color:var(--laser); }
-  .trust-strip .stat span{ font-family:'IBM Plex Mono', monospace; font-size:0.7rem; text-transform:uppercase; color:var(--slate); }
+  .trust-strip .stat b{ display:block; font-family:'Big Shoulders Display', sans-serif; font-size:2rem; color:var(--brass); }
+  .trust-strip .stat span{ font-family:'JetBrains Mono', monospace; font-size:0.72rem; text-transform:uppercase; color:var(--muted); }
 
-  .video-container{ position:relative; width:100%; padding-bottom:56.25%; height:0; background:#000; border-radius:8px; overflow:hidden; margin-top:20px; }
+  /* video */
+  .video-container{ position:relative; width:100%; padding-bottom:56.25%; height:0; background:#000; border:2px solid var(--ink); margin-top:20px; }
   .video-container iframe{ position:absolute; top:0; left:0; width:100%; height:100%; border:none; }
 
-  .testimonial-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; margin-top:22px; }
-  .testimonial-card{ background:var(--bg); padding:20px; border-radius:8px; border:1px solid var(--line); }
-  .testimonial-card .stars{ color:var(--flag); letter-spacing:2px; margin-bottom:8px; }
-  .testimonial-card p.quote{ font-style:italic; color:#39443f; margin:0 0 12px; }
-  .testimonial-card .author{ font-family:'IBM Plex Mono', monospace; font-size:0.76rem; color:var(--ink); text-transform:uppercase; }
+  /* testimonials as field-book slips */
+  .testimonial-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:20px; margin-top:22px; }
+  .testimonial-card{
+    background:var(--paper); padding:20px; border:1px solid var(--paper-line);
+    border-top:3px solid var(--brass); position:relative;
+  }
+  .testimonial-card .stars{ color:var(--brass); letter-spacing:2px; margin-bottom:8px; }
+  .testimonial-card p.quote{ font-style:italic; color:#3a3d44; margin:0 0 12px; }
+  .testimonial-card .author{ font-family:'JetBrains Mono', monospace; font-size:0.78rem; color:var(--ink); text-transform:uppercase; letter-spacing:0.03em; }
 
-  .faq-item{ border-bottom:1px solid var(--line); padding:15px 0; }
+  /* faq */
+  .faq-item{ border-bottom:1px solid var(--paper-line); padding:15px 0; }
   .faq-item:last-child{ border-bottom:none; }
-  .faq-item summary{ font-weight:600; color:var(--ink); cursor:pointer; }
-  .faq-item p{ margin:10px 0 0; color:var(--slate); }
+  .faq-item summary{ font-weight:700; color:var(--ink); cursor:pointer; font-size:1.02rem; }
+  .faq-item p{ margin:10px 0 0; color:var(--muted); }
 
-  .pricing-box{ position:relative; background:var(--ink); color:#eaf5f1; text-align:center; padding:46px 28px; border-radius:12px; scroll-margin-top:90px; }
-  .pricing-box h2{ color:#fff; }
-  .rate-tag{ font-family:'IBM Plex Mono', monospace; font-weight:700; font-size:2.5rem; color:var(--laser); margin:14px 0; }
-  .rate-tag span{ font-size:0.95rem; color:#9db8b0; }
-  .btn{ font-family:'IBM Plex Mono', monospace; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; background:var(--laser); color:#062018; padding:14px 30px; text-decoration:none; display:inline-block; font-size:0.9rem; border-radius:6px; border:1px solid var(--laser); }
-  .btn:hover{ background:#00c99a; }
-  .btn-flag{ background:var(--flag); border-color:var(--flag); color:#fff; }
-  .btn-flag:hover{ background:#c9611f; }
-  .btn-outline{ background:transparent; color:var(--laser); border:1px solid var(--laser); margin-left:10px; }
-  .btn-outline:hover{ background:rgba(0,179,137,0.12); }
+  /* pricing seal */
+  .pricing-box{
+    position:relative;
+    background:linear-gradient(160deg, var(--ink), var(--ink-2));
+    color:#f0ead9;
+    text-align:center; padding:44px 28px; scroll-margin-top:90px;
+    border:1.5px solid var(--brass);
+  }
+  .pricing-box h2{ color:#f6f2e7; border-bottom:2px solid rgba(207,159,66,0.4); display:inline-block; }
+  .rate-tag{
+    font-family:'JetBrains Mono', monospace; font-weight:700;
+    font-size:2.6rem; color:var(--brass-light); margin:14px 0; letter-spacing:0.01em;
+  }
+  .rate-tag span{ font-size:1rem; color:#c9d2da; }
+  .btn{
+    font-family:'JetBrains Mono', monospace; font-weight:600; text-transform:uppercase; letter-spacing:0.04em;
+    background:var(--brass); color:#1a1408; padding:14px 30px; text-decoration:none;
+    display:inline-block; font-size:0.95rem; border:1px solid var(--brass);
+  }
+  .btn:hover{ background:var(--brass-light); }
+  .btn-whatsapp{ background:transparent; color:var(--brass-light); border:1px solid var(--brass-light); margin-left:10px; }
+  .btn-whatsapp:hover{ background:rgba(207,159,66,0.12); }
   .btn-row{ margin-top:16px; }
-  .policy-note{ font-family:'IBM Plex Mono', monospace; font-size:0.72rem; color:#7fa89b; margin-top:18px; }
-  .trial-strip{ margin-top:22px; padding:12px 20px; border:1px dashed #1d4438; display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:0.8rem; color:var(--laser); border-radius:6px; }
+  .policy-note{ font-family:'JetBrains Mono', monospace; font-size:0.75rem; color:#9aa4ad; margin-top:18px; }
 
-  .info-strip{ display:flex; flex-wrap:wrap; gap:26px; margin-top:16px; font-family:'IBM Plex Mono', monospace; font-size:0.82rem; color:var(--slate); }
+  .trial-strip{
+    margin-top:22px; padding:14px 20px; border:1px dashed rgba(207,159,66,0.5);
+    display:inline-block; font-family:'JetBrains Mono', monospace; font-size:0.82rem; color:var(--brass-light);
+  }
+
+  /* requirements table reuse ledger */
+
+  /* contact */
+  .info-strip{ display:flex; flex-wrap:wrap; gap:26px; margin-top:16px; font-family:'JetBrains Mono', monospace; font-size:0.85rem; color:var(--muted); }
   .contact-form{ display:grid; gap:14px; max-width:500px; margin-top:22px; }
-  .contact-form input, .contact-form textarea{ padding:12px 14px; border:1px solid var(--line); border-radius:6px; font-family:'Space Grotesk', sans-serif; font-size:1rem; }
+  .contact-form input, .contact-form textarea{
+    padding:12px 14px; border:1px solid var(--paper-line); background:#fffdf7;
+    font-family:'Source Serif 4', serif; font-size:1rem;
+  }
   .contact-form textarea{ resize:vertical; min-height:90px; }
-  .contact-form button{ justify-self:start; border:none; cursor:pointer; border-radius:6px; }
+  .contact-form button{ justify-self:start; border:1px solid var(--brass); cursor:pointer; }
 
-  footer{ text-align:center; padding:30px 20px; background:var(--ink); color:#7fa89b; font-family:'IBM Plex Mono', monospace; font-size:0.78rem; }
-  footer a{ color:var(--laser); text-decoration:none; }
+  footer{
+    text-align:center; padding:30px 20px; background:var(--ink-2); color:#9aa4ad;
+    font-family:'JetBrains Mono', monospace; font-size:0.8rem;
+  }
+  footer a{ color:var(--brass-light); text-decoration:none; }
   .legal-links{ margin-top:10px; }
-  .legal-links a{ color:#4f6a62; margin:0 8px; font-size:0.75rem; }
-  .legal-links a:hover{ color:var(--laser); }
+  .legal-links a{ color:#7a8290; margin:0 8px; font-size:0.78rem; }
+  .legal-links a:hover{ color:var(--brass-light); }
 
-  #backToTop{ position:fixed; bottom:26px; right:26px; background:var(--laser); color:#062018; border:none; width:46px; height:46px; border-radius:50%; font-size:1.2rem; cursor:pointer; display:none; z-index:150; }
-  #backToTop:hover{ background:#00c99a; }
+  #backToTop{
+    position:fixed; bottom:26px; right:26px; background:var(--brass); color:#1a1408;
+    border:none; width:46px; height:46px; border-radius:50%; font-size:1.2rem; cursor:pointer;
+    display:none; z-index:150; font-family:'JetBrains Mono', monospace;
+  }
+  #backToTop:hover{ background:var(--brass-light); }
 </style>
 </head>
 <body>
 
 <nav class="navbar">
   <div class="navbar-inner">
-    <a href="#top" class="navbar-brand"><span class="dot"></span>brahmanee.com</a>
+    <a href="#top" class="navbar-brand">◎ brahmanee<span>.com</span></a>
     <div class="navbar-links">
       <a href="#about">Home</a>
       <a href="#features">Commands</a>
@@ -167,56 +333,49 @@
 </nav>
 
 <header class="hero" id="top">
-  <svg class="contours" viewBox="0 0 1200 500" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M-50,420 C 200,380 300,460 500,410 C 700,360 800,440 1250,400" stroke="#1d4438" stroke-width="1.5" fill="none"/>
-    <path d="M-50,450 C 200,410 300,490 500,440 C 700,390 800,470 1250,430" stroke="#1d4438" stroke-width="1.5" fill="none"/>
-    <path d="M-50,60 C 250,20 350,100 550,55 C 750,10 850,90 1250,40" stroke="#1d4438" stroke-width="1.5" fill="none"/>
-    <path d="M-50,90 C 250,50 350,130 550,85 C 750,40 850,120 1250,70" stroke="#1d4438" stroke-width="1.5" fill="none"/>
-    <path d="M-50,120 C 250,80 350,160 550,115 C 750,70 850,150 1250,100" stroke="#1d4438" stroke-width="1.5" fill="none"/>
-  </svg>
   <div class="hero-inner">
-    <div class="readout-label">◈ Total Station Precision · AutoLISP for AutoCAD</div>
-    <h1>Brahmanee Land Survey Tools</h1>
-    <p class="sub">13-command AutoLISP suite for Tippon drawing, coordinate tables, and dual-unit dimensioning — built for Telangana revenue &amp; cadastral survey workflows.</p>
+    <div class="eyebrow">AutoLISP Suite · Cadastral &amp; Revenue Survey Drafting</div>
+    <h1>Brahmanee Land<br>Survey Tools</h1>
+    <p class="sub">13-command AutoLISP suite for Tippon drawing, coordinate tables and dual-unit dimensioning — built inside AutoCAD, for Telangana survey workflows.</p>
     <div class="dev-credit">AUTHORED &amp; MANAGED BY NARRI ANEL KKUMAR</div>
 
-    <div class="readout-row">
-      <div class="readout"><b>500+</b><span>Active Surveyors</span></div>
-      <div class="readout"><b>13</b><span>LISP Commands</span></div>
-      <div class="readout"><b>85%</b><span>Time Saved</span></div>
+    <div class="stamp-row">
+      <div class="stamp"><b>500+</b><span>Surveyors<br>Active</span></div>
+      <div class="stamp"><b>13</b><span>LISP<br>Commands</span></div>
+      <div class="stamp"><b>85%</b><span>Time<br>Saved</span></div>
     </div>
   </div>
 </header>
 
 <div class="container">
 
-  <div class="panel" id="about">
-    <span class="tag">// 01 Overview</span>
+  <div class="tb-card tb-corner-b" id="about">
+    <span class="section-tag">Sheet 01 · Overview</span>
     <h2>About the Master Suite</h2>
     <p>Designed specifically for professional land surveyors, this powerful suite includes 13 integrated AutoLISP commands built to handle complex area calculations, Tippon drawing, coordinates tables, and dual-unit dimensioning instantly inside AutoCAD.</p>
 
-    <h3 id="features" style="scroll-margin-top:90px; margin-top:28px; font-size:1.25rem;">All 13 Commands</h3>
-    <div class="cmd-grid">
-      <div class="cmd-item"><span class="cmd-code">CTABLE</span><div>Survey Coordinates Table Generator</div></div>
-      <div class="cmd-item"><span class="cmd-code">LGTABLE</span><div>Auto Numbered Legend Table &amp; Hatch</div></div>
-      <div class="cmd-item"><span class="cmd-code">ACGT</span><div>Area Labels in Acres &amp; Gunthas</div></div>
-      <div class="cmd-item"><span class="cmd-code">CHKAREA</span><div>Detailed Area Dialog Box &amp; Prompt</div></div>
-      <div class="cmd-item"><span class="cmd-code">SQAREA</span><div>Area in Sq.Meters &amp; Sq.Feet at Center</div></div>
-      <div class="cmd-item"><span class="cmd-code">DALL</span><div>Dual Unit Dimensions (Meters &amp; Feet)</div></div>
-      <div class="cmd-item"><span class="cmd-code">LMF2</span><div>Dual Align Labels on Lines</div></div>
-      <div class="cmd-item"><span class="cmd-code">PDALL</span><div>Auto Polyline Dimensions</div></div>
-      <div class="cmd-item"><span class="cmd-code">MF</span><div>Below Line Label (Meters &amp; Feet-Inches)</div></div>
-      <div class="cmd-item"><span class="cmd-code">RAM</span><div>Below Line Label (Rupees-Annas &amp; Meters)</div></div>
-      <div class="cmd-item"><span class="cmd-code">FT</span><div>Below Line Label (Only Feet &amp; Inches)</div></div>
-      <div class="cmd-item"><span class="cmd-code">TFC</span><div>Tippon Fix, Connect (Auto Text Update)</div></div>
-      <div class="cmd-item"><span class="cmd-code">TIPPON</span><div>Numpad Directional Drawing Suite</div></div>
+    <h3 id="features" style="scroll-margin-top:90px; margin-top:28px; font-size:1.3rem;">Control Point Index — 13 Commands</h3>
+    <div class="point-list">
+      <div class="point-item"><span class="point-num">01</span><div><b>CTABLE</b> — Survey Coordinates Table Generator</div></div>
+      <div class="point-item"><span class="point-num">02</span><div><b>LGTABLE</b> — Auto Numbered Legend Table &amp; Hatch</div></div>
+      <div class="point-item"><span class="point-num">03</span><div><b>ACGT</b> — Area Labels in Acres &amp; Gunthas</div></div>
+      <div class="point-item"><span class="point-num">04</span><div><b>CHKAREA</b> — Detailed Area Dialog Box &amp; Prompt</div></div>
+      <div class="point-item"><span class="point-num">05</span><div><b>SQAREA</b> — Area in Sq.Meters &amp; Sq.Feet at Center</div></div>
+      <div class="point-item"><span class="point-num">06</span><div><b>DALL</b> — Dual Unit Dimensions (Meters &amp; Feet)</div></div>
+      <div class="point-item"><span class="point-num">07</span><div><b>LMF2</b> — Dual Align Labels on Lines</div></div>
+      <div class="point-item"><span class="point-num">08</span><div><b>PDALL</b> — Auto Polyline Dimensions</div></div>
+      <div class="point-item"><span class="point-num">09</span><div><b>MF</b> — Below Line Label (Meters &amp; Feet-Inches)</div></div>
+      <div class="point-item"><span class="point-num">10</span><div><b>RAM</b> — Below Line Label (Rupees-Annas &amp; Meters)</div></div>
+      <div class="point-item"><span class="point-num">11</span><div><b>FT</b> — Below Line Label (Only Feet &amp; Inches)</div></div>
+      <div class="point-item"><span class="point-num">12</span><div><b>TFC</b> — Tippon Fix, Connect (Auto Text Update)</div></div>
+      <div class="point-item"><span class="point-num">13</span><div><b>TIPPON</b> — Numpad Directional Drawing Suite</div></div>
     </div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 02 Comparison</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 02 · Comparison</span>
     <h2>Why Surveyors Prefer Brahmanee Over Bhumithi</h2>
-    <table class="spec">
+    <table class="ledger">
       <tr><th>Feature</th><th>Bhumithi Software</th><th>Brahmanee LISP</th></tr>
       <tr><td>Works Directly Inside AutoCAD/Civil 3D</td><td>Separate Software</td><td>Native LISP Integration</td></tr>
       <tr><td>Tippon Drawing with Numpad Input</td><td>Limited</td><td>Full TIPPON Suite (13 Commands)</td></tr>
@@ -228,20 +387,20 @@
     <p class="foot-note">* Comparison based on feature availability reported by current Brahmanee LISP users who have also used Bhumithi software.</p>
   </div>
 
-  <div class="panel" id="developer">
-    <span class="tag">// 03 Developer</span>
+  <div class="tb-card tb-corner-b" id="developer">
+    <span class="section-tag">Sheet 03 · Developer</span>
     <h2>About the Developer</h2>
     <div class="dev-section">
       <div class="dev-avatar">NAK</div>
       <div>
         <p style="margin:0 0 8px; color:var(--ink); font-weight:600;">NARRI ANEL KKUMAR — Professional Land Surveyor, Telangana</p>
-        <p style="margin:0; color:var(--slate);">Working full-time in AutoCAD Civil 3D based revenue &amp; cadastral survey drafting, with hands-on field experience in Telangana survey workflows. Started developing custom AutoLISP tools to solve everyday drafting bottlenecks faced during tippon preparation, and has been continuously building and refining the Brahmanee LISP suite based on direct feedback from working surveyors.</p>
+        <p style="margin:0; color:var(--muted);">Working full-time in AutoCAD Civil 3D based revenue &amp; cadastral survey drafting, with hands-on field experience in Telangana survey workflows. Started developing custom AutoLISP tools to solve everyday drafting bottlenecks faced during tippon preparation, and has been continuously building and refining the Brahmanee LISP suite based on direct feedback from working surveyors.</p>
       </div>
     </div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 04 Revision Log</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 04 · Revision Log</span>
     <h2>Updates &amp; Version History</h2>
     <div class="version-item"><div class="version-tag">Latest</div><div><b>TFC (Tippon Fix Connect)</b> added — dynamic label-search radius with precise geometric label targeting; PDALL dimension text placement bug fixed.</div></div>
     <div class="version-item"><div class="version-tag">Update</div><div><b>TIPPON</b> — full Bhumithi-style numpad input suite added with Rupee-Anna conversion, polygon closure checking, and Acres-Guntas area calculation.</div></div>
@@ -249,13 +408,13 @@
     <div class="version-item"><div class="version-tag">Ongoing</div><div>Active development continues — new commands and fixes released regularly based on surveyor feedback.</div></div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 05 Benchmark</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 05 · Benchmark</span>
     <h2>Before &amp; After: Time Saved</h2>
     <p>Manual drafting vs. Brahmanee LISP automation for a typical tippon sheet with coordinates table and area labels:</p>
     <div class="comparison-grid">
-      <div class="comparison-item before"><div class="lab">Manual AutoCAD Drafting</div><div class="time">45–60 min</div><p style="margin:0; color:var(--slate);">Manual dimensioning, area calculation, table typing, label placement</p></div>
-      <div class="comparison-item after"><div class="lab">With Brahmanee LISP</div><div class="time">5–8 min</div><p style="margin:0; color:var(--slate);">One-click commands for tables, labels, area &amp; dimensions</p></div>
+      <div class="comparison-item before"><div class="tag">Manual AutoCAD Drafting</div><div class="time">45–60 min</div><p style="margin:0; color:var(--muted);">Manual dimensioning, area calculation, table typing, label placement</p></div>
+      <div class="comparison-item after"><div class="tag">With Brahmanee LISP</div><div class="time">5–8 min</div><p style="margin:0; color:var(--muted);">One-click commands for tables, labels, area &amp; dimensions</p></div>
     </div>
     <div class="trust-strip">
       <div class="stat"><b>500+</b><span>Active Surveyors</span></div>
@@ -264,8 +423,8 @@
     </div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 06 Demonstration</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 06 · Demonstration</span>
     <h2>Live Demonstration &amp; Video Tutorial</h2>
     <p>Watch how the AutoLISP commands and Tippon drawing tools work seamlessly in AutoCAD:</p>
     <div class="video-container">
@@ -273,8 +432,8 @@
     </div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 07 Field Reports</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 07 · Field Reports</span>
     <h2>What Surveyors Are Saying</h2>
     <div class="testimonial-grid">
       <div class="testimonial-card">
@@ -295,10 +454,10 @@
     </div>
   </div>
 
-  <div class="panel">
-    <span class="tag">// 08 Specifications</span>
+  <div class="tb-card tb-corner-b">
+    <span class="section-tag">Sheet 08 · Specifications</span>
     <h2>System Requirements &amp; Compatibility</h2>
-    <table class="spec">
+    <table class="ledger">
       <tr><th>Requirement</th><th>Details</th></tr>
       <tr><td>AutoCAD Version</td><td>AutoCAD 2018–2025 (Full &amp; Civil 3D)</td></tr>
       <tr><td>Operating System</td><td>Windows 10 / 11 (64-bit)</td></tr>
@@ -308,8 +467,8 @@
     </table>
   </div>
 
-  <div class="panel" id="faq">
-    <span class="tag">// 09 FAQ</span>
+  <div class="tb-card tb-corner-b" id="faq">
+    <span class="section-tag">Sheet 09 · FAQ</span>
     <h2>Frequently Asked Questions</h2>
     <details class="faq-item">
       <summary class="te">Device మారితే license transfer అవుతుందా?</summary>
@@ -327,19 +486,19 @@
 
   <div class="pricing-box" id="pricing">
     <h2>Annual Commercial License</h2>
-    <p style="color:#b9cbc5;">Get access to all 13 powerful commands with advanced offline device-lock security and 1-year updates.</p>
+    <p style="color:#c9d2da;">Get access to all 13 powerful commands with advanced offline device-lock security and 1-year updates.</p>
     <div class="rate-tag">₹15,000 <span>/ year</span></div>
-    <p style="margin-bottom:6px; color:#7fa89b;">Protected by Time Expiry &amp; Offline Device Lock System</p>
+    <p style="margin-bottom:6px; color:#9aa4ad;">Protected by Time Expiry &amp; Offline Device Lock System</p>
     <div class="btn-row">
-      <a href="tel:7711889955" class="btn btn-flag">Call to Purchase / Renew</a>
-      <a href="https://wa.me/917711889955" class="btn btn-outline" target="_blank">WhatsApp Us</a>
+      <a href="tel:7711889955" class="btn">Call to Purchase / Renew</a>
+      <a href="https://wa.me/917711889955" class="btn btn-whatsapp" target="_blank">WhatsApp Us</a>
     </div>
     <div class="trial-strip">3-Day Trial Available on Request — Ask via WhatsApp</div>
     <p class="policy-note">Support via Call/WhatsApp &nbsp;·&nbsp; Device Transfer Supported &nbsp;·&nbsp; No Refund After Activation</p>
   </div>
 
-  <div class="panel" id="contact" style="margin-top:32px;">
-    <span class="tag">// 10 Contact</span>
+  <div class="tb-card tb-corner-b" id="contact" style="margin-top:46px;">
+    <span class="section-tag">Sheet 10 · Contact</span>
     <h2>Contact &amp; Support</h2>
     <div class="info-strip">
       <div>PHONE/WHATSAPP: +91 7711889955</div>
@@ -350,7 +509,7 @@
       <input type="text" id="cf-name" placeholder="మీ పేరు (Your Name)" required>
       <input type="tel" id="cf-phone" placeholder="Phone Number" required>
       <textarea id="cf-msg" placeholder="మీ మెసేజ్ (Your Message)" required></textarea>
-      <button type="submit" class="btn btn-outline">Send via WhatsApp</button>
+      <button type="submit" class="btn btn-whatsapp">Send via WhatsApp</button>
     </form>
   </div>
 
@@ -362,7 +521,7 @@
   <p>© 2026 Brahmanee Land Survey Tools. Developed by NARRI ANEL KKUMAR (+91 7711889955). All rights reserved.</p>
   <p style="margin:8px 0;"><a href="https://brahmanee.com" target="_blank">www.brahmanee.com</a></p>
   <div class="legal-links"><a href="#terms">Terms &amp; Conditions</a> | <a href="#privacy">Privacy Policy</a></div>
-  <p style="font-size:0.7rem; color:#3f5951; margin-top:8px;">Served over a secure (HTTPS) connection when hosted.</p>
+  <p style="font-size:0.72rem; color:#5c6673; margin-top:8px;">Served over a secure (HTTPS) connection when hosted.</p>
 </footer>
 
 <script>
