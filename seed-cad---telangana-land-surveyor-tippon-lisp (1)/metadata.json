@@ -1,6 +1,0 @@
-{
-  "name": "SEED CAD - Telangana Land Surveyor Tippon LISP",
-  "description": "Comprehensive AutoCAD LISP tools & Tippon generator for Telangana Land Surveyors by Narri Anel Kkumar. Compare Bhumithi vs SEED CAD, convert Rupee-Annas, generate tables, and watch tutorials.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
