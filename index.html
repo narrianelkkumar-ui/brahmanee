@@ -1,3 +1,1465 @@
+{
+  "name": "SEED CAD - Telangana Land Surveyor Tippon LISP",
+  "description": "Comprehensive AutoCAD LISP tools & Tippon generator for Telangana Land Surveyors by Narri Anel Kkumar. Compare Bhumithi vs SEED CAD, convert Rupee-Annas, generate tables, and watch tutorials.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+```[cite: 1]
+
+---
+
+### 📁 2. `src/types.ts`
+```typescript
+export interface LispCommand {
+  id: string;
+  name: string;
+  category: 'tippon' | 'labeling' | 'area' | 'tables' | 'dimensions';
+  shortDescEn: string;
+  shortDescTe: string;
+  longDescEn: string;
+  longDescTe: string;
+  syntax: string;
+  exampleUsage: string;
+  keyFeatures: string[];
+  iconName: string;
+}
+
+export interface TipponSegment {
+  id: string;
+  p1: { x: number; y: number };
+  p2: { x: number; y: number };
+  rawInput: string; 
+  rupees: number;
+  annas: number;
+  meters: number;
+  feet: number;
+  direction: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
+  directionKey: string; 
+}
+
+export interface ComparisonFeature {
+  featureEn: string;
+  featureTe: string;
+  bhumithi: {
+    status: 'poor' | 'average' | 'good';
+    descriptionEn: string;
+    descriptionTe: string;
+  };
+  seedCad: {
+    status: 'good' | 'excellent';
+    descriptionEn: string;
+    descriptionTe: string;
+  };
+}
+
+export interface YouTubeVideo {
+  id: string;
+  titleEn: string;
+  titleTe: string;
+  duration: string;
+  videoUrl: string;
+  thumbnail: string;
+  description: string;
+}
+```[cite: 1]
+
+---
+
+### 💻 3. `src/data/lispSource.ts` (AutoCAD Master LISP Code)
+```typescript
+export const LISP_FILE_NAME = "SEED_CAD_SUPER_MASTER_TIPPON.lsp";
+
+export const LISP_FILE_CONTENT = `;; ==========================================================================
+;;  SUPER MASTER LISP - ALL IN ONE INTEGRATED FILE
+;;  Contains 16 Survey & Drafting Automation Commands (Added FT for Only Ft-In)
+;;  Created with ❤️ for Professional Land Surveying
+;;  Branding, Expiry & DEVICE LOCK Managed for: NARRI ANEL KKUMAR (Ph: 7711889955)
+;; ==========================================================================
+
+(vl-load-com)
+
+;; ==========================================================================
+;;  SECURITY BLOCK: TIME EXPIRY & OFFLINE DEVICE LOCK SYSTEM
+;; ==========================================================================
+(defun RE-CHECK-EXPIRY (/ expYear expMonth expDay sysDate curYear curMonth curDay fso drive currentSerial allowedSerial)
+  (setq allowedSerial 1216933645 ) ;; <-- క్లయింట్ డివైజ్ లాక్ నంబర్
+  
+  (setq fso (vlax-create-object "Scripting.FileSystemObject"))
+  (setq drive (vlax-invoke-method fso 'GetDrive "C:"))
+  (setq currentSerial (vlax-get-property drive 'SerialNumber))
+  (vlax-release-object fso)
+
+  (if (/= currentSerial allowedSerial)
+    (progn
+      (alert (strcat "This software is NOT authorized for this computer!\\n"
+                     "Registered on another device.\\n\\n"
+                     "Please contact NARRI ANEL KKUMAR.\\n📞 Phone: +91 7711889955"))
+      (exit)
+    )
+  )
+
+  (setq expYear  2028
+        expMonth 12
+        expDay   31)
+
+  (setq sysDate (rtos (getvar "CDATE") 2 0)
+        curYear  (atoi (substr sysDate 1 4))
+        curMonth (atoi (substr sysDate 5 2))
+        curDay   (atoi (substr sysDate 7 2)))
+
+  (if (or (> curYear expYear)
+          (and (= curYear expYear) (> curMonth expMonth))
+          (and (= curYear expYear) (= curMonth expMonth) (> curDay expDay)))
+    (progn
+      (alert "This software license has expired.\\nPlease contact NARRI ANEL KKUMAR for a renewal.\\n\\n📞 Phone: +91 7711889955")
+      (exit)
+    )
+  )
+)
+
+;; ==========================================================================
+;;  COMMON MATH, CONVERSION & SEARCH UTILITIES
+;; ==========================================================================
+
+(defun rtd (r) (* 180.0 (/ r pi)))
+
+;; మీటర్ల నుండి రూపాయిలు-ఆణాలు మార్చే ఫార్ములా (లింక్స్ ఆధారంగా)
+(defun meters-to-annas (dist_meters / total_annas rupees annas)
+  (setq total_annas (/ (* dist_meters 5.0) 3.143245866))
+  (setq rupees (fix (/ total_annas 16.0)))
+  (setq annas (fix (+ 0.5 (- total_annas (* rupees 16.0)))))
+  (if (= annas 16)
+    (progn
+      (setq rupees (1+ rupees))
+      (setq annas 0))
+  )
+  (strcat (itoa rupees) "-" (itoa annas))
+)
+
+;; ఎంపిక చేసిన లైన్ దగ్గర్లో ఉన్న పాత టెక్స్ట్‌ను వెతికి ఆటోమేటిక్‌గా అప్‌డేట్ చేసే ఫంక్షన్
+(defun update-associated-text (ent new_dist / obj p1 p2 mid ss i text_ent text_obj text_str new_annas_val radius found rlist)
+  (setq obj (vlax-ename->vla-object ent))
+  (setq p1 (vlax-curve-getStartPoint obj))
+  (setq p2 (vlax-curve-getEndPoint obj))
+  (setq mid (mapcar '(lambda (a b) (/ (+ a b) 2.0)) p1 p2))
+  (setq found nil)
+  (setq rlist (list 3.0 10.0 25.0 50.0))
+
+  (foreach radius rlist
+    (if (not found)
+      (progn
+        (setq ss (ssget "_C"
+                        (list (- (car mid) radius) (- (cadr mid) radius))
+                        (list (+ (car mid) radius) (+ (cadr mid) radius))
+                        '((0 . "TEXT"))))
+        (if ss
+          (progn
+            (setq i 0)
+            (while (< i (sslength ss))
+              (setq text_ent (ssname ss i))
+              (setq text_obj (vlax-ename->vla-object text_ent))
+              (setq text_str (vla-get-TextString text_obj))
+              (if (vl-string-search "-" text_str)
+                (progn
+                  (setq new_annas_val (meters-to-annas new_dist))
+                  (vla-put-TextString text_obj
+                    (strcat new_annas_val " (" (rtos new_dist 2 2) "m)"))
+                  (setq found T)
+                )
+              )
+              (setq i (1+ i))
+            )
+          )
+        )
+      )
+    )
+  )
+
+  (if found
+    (princ "\\n[TFC] Label found & updated.")
+    (princ "\\n[TFC] WARNING: No Rs-Annas/meters label found near this line (checked up to 50m radius).")
+  )
+)
+
+;; ==========================================================================
+;;  PART 1: TABLE AUTOMATION TOOLS (CTABLE & LGTABLE)
+;; ==========================================================================
+
+;; --- COMMAND 1: CTABLE (Click Point -> Single Table with S.No, X, Y) ---
+(defun c:CTABLE (/ style pt sno x_val y_val coord_str old_osmode
+                    tbl_pt row_h w1 w2 w3 txt_h col1 col2 col3
+                    cur_pt header_pt)
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq old_osmode (getvar "osmode"))
+
+  (princ "\\n========================================")
+  (princ "\\n  Choose Coordinate Display Style:")
+  (princ "\\n  1. Simple  -> 1234.56, 5678.90")
+  (princ "\\n  2. Survey  -> N 5678.90 E 1234.56")
+  (princ "\\n  3. Equals  -> X=1234.56 Y=5678.90")
+  (princ "\\n========================================")
+  (initget 1 "1 2 3")
+  (setq style (getkword "\\n  Enter Choice [1/2/3]: "))
+
+  (setq txt_h (getreal "\\nEnter Text Height <2.5>: "))
+  (if (null txt_h) (setq txt_h 2.5))
+
+  (setq row_h (* txt_h 2.2)) 
+  (setq w1 (* txt_h 6.0))   
+  (setq w2 (* txt_h 16.0))  
+  (setq w3 (* txt_h 16.0))  
+
+  (setq tbl_pt (getpoint "\\nPick Table Top-Left Position: "))
+  (if (null tbl_pt) (exit))
+
+  (coord20-draw-row tbl_pt w1 w2 w3 row_h)
+  
+  (coord20-draw-text (coord20-center tbl_pt w1 row_h) "S.No" txt_h)
+  (coord20-draw-text (coord20-center (polar tbl_pt 0 w1) w2 row_h) "X" txt_h)
+  (coord20-draw-text (coord20-center (polar tbl_pt 0 (+ w1 w2)) w3 row_h) "Y" txt_h)
+
+  (setq sno 1)
+  (setq cur_pt (polar tbl_pt (* 1.5 pi) row_h))
+
+  (setvar "osmode" 16383)
+  (princ "\\nClick Points... Press ENTER to Stop.")
+
+  (while (setq pt (getpoint (strcat "\\nClick Point [S.No " (itoa sno) "]: ")))
+    (setq x_val (rtos (car pt) 2 2))
+    (setq y_val (rtos (cadr pt) 2 2))
+
+    (cond
+      ((= style "1")
+       (setq col2 x_val)
+       (setq col3 y_val))
+      ((= style "2")
+       (setq col2 (strcat "E " x_val))
+       (setq col3 (strcat "N " y_val)))
+      ((= style "3")
+       (setq col2 (strcat "X=" x_val))
+       (setq col3 (strcat "Y=" y_val)))
+    )
+
+    (coord20-draw-row cur_pt w1 w2 w3 row_h)
+
+    (coord20-draw-text (coord20-center cur_pt w1 row_h) (itoa sno) txt_h)
+    (coord20-draw-text (coord20-center (polar cur_pt 0 w1) w2 row_h) col2 txt_h)
+    (coord20-draw-text (coord20-center (polar cur_pt 0 (+ w1 w2)) w3 row_h) col3 txt_h)
+
+    (entmake (list (cons 0 "POINT") (cons 10 pt)))
+    (princ (strcat "\\nAdded Row " (itoa sno) " -> X: " x_val " Y: " y_val))
+
+    (setq cur_pt (polar cur_pt (* 1.5 pi) row_h))
+    (setq sno (1+ sno))
+  )
+
+  (setvar "osmode" old_osmode)
+  (princ "\\nDone. Total Points: ")
+  (princ (1- sno))
+  (princ)
+)
+
+(defun coord20-draw-row (pt w1 w2 w3 h) (coord20-draw-box pt w1 h) (coord20-draw-box (polar pt 0 w1) w2 h) (coord20-draw-box (polar pt 0 (+ w1 w2)) w3 h))
+(defun coord20-draw-box (pt w h) (entmake (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity") (cons 100 "AcDbPolyline") (cons 90 4) (cons 70 1) (cons 10 (list (car pt) (cadr pt))) (cons 10 (list (+ (car pt) w) (cadr pt))) (cons 10 (list (+ (car pt) w) (- (cadr pt) h))) (cons 10 (list (car pt) (- (cadr pt) h))))))
+(defun coord20-center (pt w h) (list (+ (car pt) (/ w 2.0)) (- (cadr pt) (/ h 2.0)) 0.0))
+(defun coord20-draw-text (pt str h) (entmake (list (cons 0 "TEXT") (cons 10 pt) (cons 11 pt) (cons 40 h) (cons 1 str) (cons 72 1) (cons 73 2))))
+
+
+;; --- COMMAND 2: LGTABLE (Survey Legend Table - Pre-draw Rows & Auto S.No) ---
+(defun c:LGTABLE (/ tbl_pt row_h w1 w2 w3 w4 w5 txt_h cur_pt sno total_rows
+                     syno_txt class_txt extent_txt color_choice color_idx
+                     hatch_pt inner_pt inner_w inner_h rect_ent old_osmode i row_pts)
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq old_osmode (getvar "osmode"))
+
+  (setq txt_h (getreal "\\nEnter Text Height <2.5>: "))
+  (if (null txt_h) (setq txt_h 2.5))
+
+  (setq row_h (* txt_h 2.5))
+  (setq w1 (* txt_h 5.0))   
+  (setq w2 (* txt_h 8.0))   
+  (setq w3 (* txt_h 24.0))  
+  (setq w4 (* txt_h 14.0))  
+  (setq w5 (* txt_h 8.0))   
+
+  (setq total_rows (getint "\\nEnter Total Rows (Number): "))
+  (if (null total_rows) (setq total_rows 1))
+
+  (setq tbl_pt (getpoint "\\nPick Table Top-Left Position: "))
+  (if (null tbl_pt) (progn (princ "\\nCancelled.") (exit)))
+
+  (legend20-draw-row tbl_pt w1 w2 w3 w4 w5 row_h)
+  (legend20-draw-text (legend20-center tbl_pt w1 row_h) "S.No" txt_h)
+  (legend20-draw-text (legend20-center (polar tbl_pt 0 w1) w2 row_h) "SY.NO" txt_h)
+  (legend20-draw-text (legend20-center (polar tbl_pt 0 (+ w1 w2)) w3 row_h) "CLASSIFICATION" txt_h)
+  (legend20-draw-text (legend20-center (polar tbl_pt 0 (+ w1 w2 w3)) w4 row_h) "EXTENT" txt_h)
+  (legend20-draw-text (legend20-center (polar tbl_pt 0 (+ w1 w2 w3 w4)) w5 row_h) "LEGEND" txt_h)
+
+  (setq cur_pt (polar tbl_pt (* 1.5 pi) row_h))
+  (setq i 1)
+  (setq row_pts nil)
+
+  (while (<= i total_rows)
+    (legend20-draw-row cur_pt w1 w2 w3 w4 w5 row_h)
+    (legend20-draw-text (legend20-center cur_pt w1 row_h) (itoa i) txt_h)
+    (setq row_pts (append row_pts (list cur_pt)))
+    (setq cur_pt (polar cur_pt (* 1.5 pi) row_h))
+    (setq i (1+ i))
+  )
+  (command "_.REDRAW")
+
+  (setq sno 1)
+  (foreach r_pt row_pts
+    (princ (strcat "\\n\\n--- [Entering Data for Row " (itoa sno) "] ---"))
+    
+    (setq syno_txt (getstring t (strcat "\\n[Row " (itoa sno) "] SY.NO: ")))
+    (legend20-draw-text (legend20-center (polar r_pt 0 w1) w2 row_h) syno_txt txt_h)
+
+    (setq class_txt (getstring t (strcat "\\n[Row " (itoa sno) "] Classification: ")))
+    (legend20-draw-text (legend20-center (polar r_pt 0 (+ w1 w2)) w3 row_h) class_txt txt_h)
+
+    (setq extent_txt (getstring t (strcat "\\n[Row " (itoa sno) "] Extent (e.g. Ac 02-10): ")))
+    (legend20-draw-text (legend20-center (polar r_pt 0 (+ w1 w2 w3)) w4 row_h) extent_txt txt_h)
+
+    (princ "\\nChoose Legend Color:")
+    (princ "\\n 1-Red  2-Yellow  3-Green  4-Cyan  5-Blue  6-Magenta  7-White")
+    (initget 1 "1 2 3 4 5 6 7")
+    (setq color_choice (getkword "\\nEnter Color [1-7]: "))
+    (setq color_idx (atoi color_choice))
+
+    (setq hatch_pt (polar r_pt 0 (+ w1 w2 w3 w4)))
+    (setq inner_pt (list (+ (car hatch_pt) (* txt_h 0.5)) (- (cadr hatch_pt) (* txt_h 0.5)) 0.0))
+    (setq inner_w (- w5 (* txt_h 1.0)))
+    (setq inner_h (- row_h (* txt_h 1.0)))
+
+    (command "_.RECTANG" "_non" inner_pt "_non" (list (+ (car inner_pt) inner_w) (- (cadr inner_pt) inner_h)))
+    (setq rect_ent (entlast))
+    (command "_.HATCH" "SOLID" "" rect_ent "")
+    (command "_.CHPROP" (entlast) "" "Color" color_idx "")
+
+    (setq sno (1+ sno))
+  )
+
+  (setvar "osmode" old_osmode)
+  (princ "\\n\\nDone! All Rows Filled Successfully.")
+  (princ)
+)
+
+(defun legend20-draw-row (pt w1 w2 w3 w4 w5 h) (legend20-draw-box pt w1 h) (legend20-draw-box (polar pt 0 w1) w2 h) (legend20-draw-box (polar pt 0 (+ w1 w2)) w3 h) (legend20-draw-box (polar pt 0 (+ w1 w2 w3)) w4 h) (legend20-draw-box (polar pt 0 (+ w1 w2 w3 w4)) w5 h))
+(defun legend20-draw-box (pt w h) (entmake (list (cons 0 "LWPOLYLINE") (cons 100 "AcDbEntity") (cons 100 "AcDbPolyline") (cons 90 4) (cons 70 1) (cons 10 (list (car pt) (cadr pt))) (cons 10 (list (+ (car pt) w) (cadr pt))) (cons 10 (list (+ (car pt) w) (- (cadr pt) h))) (cons 10 (list (car pt) (- (cadr pt) h))))))
+(defun legend20-center (pt w h) (list (+ (car pt) (/ w 2.0)) (- (cadr pt) (/ h 2.0)) 0.0))
+(defun legend20-draw-text (pt str h) (entmake (list (cons 0 "TEXT") (cons 10 pt) (cons 11 pt) (cons 40 h) (cons 1 str) (cons 72 1) (cons 73 2))))
+
+
+;; ==========================================================================
+;;  PART 2: SURVEY METERS & AREA CALCULATION UTILITIES
+;; ==========================================================================
+
+;; --- COMMAND 3: ACGT (Area in Acres & Gunthas) ---
+(defun c:ACGT (/ sel ent obj area conversion_factor total_acres acres_int decimal_part val_guntha acres_str gunthas_str text_str pt text_height)
+  (RE-CHECK-EXPIRY)
+  (setq conversion_factor 4046.845775)
+  (if (setq sel (entsel "\\n[ACGT] Select Polyline for Acres/Gunthas: "))
+    (progn
+      (setq ent (car sel))
+      (setq obj (vlax-ename->vla-object ent))
+      (if (vlax-property-available-p obj 'Area)
+        (progn
+          (setq area (vla-get-area obj))
+          (setq total_acres (/ area conversion_factor))
+          (setq acres_int (fix total_acres))
+          (setq decimal_part (- total_acres acres_int))
+          (setq val_guntha (* decimal_part 40.0))
+          
+          (if (>= val_guntha 39.999) 
+            (progn 
+              (setq acres_int (1+ acres_int)) 
+              (setq val_guntha 0.0)
+            )
+          )
+          
+          (if (< acres_int 10) 
+            (setq acres_str (strcat "0" (itoa acres_int))) 
+            (setq acres_str (itoa acres_int))
+          )
+          
+          (if (< val_guntha 10.0)
+            (setq gunthas_str (strcat "0" (rtos val_guntha 2 2)))
+            (setq gunthas_str (rtos val_guntha 2 2))
+          )
+          
+          (setq text_str (strcat "Ac. " acres_str " - " gunthas_str " Gts."))
+          (setq pt (getpoint "\\nPick point to place text: "))
+          (setq text_height (getvar "TEXTSIZE"))
+          (if (= text_height 0.0) (setq text_height 2.5))
+          (command "_.TEXT" "_non" pt text_height 0 text_str)
+          (princ (strcat "\\nCreated Text: " text_str)))
+        (princ "\\nError: Object has no area.")
+      )
+    )
+    (princ "\\nNo object selected.")
+  )
+  (princ)
+)
+
+;; --- COMMAND 4: CHKAREA (Area Detail Alert & Command Line Print) ---
+(defun c:CHKAREA (/ ent obj sq_mt total_guntas acres guntas acres_str gunthas_str msg)
+  (RE-CHECK-EXPIRY)
+  (vl-load-com)
+  
+  (setq ent (car (entsel "\\nSelect a Polyline to calculate Area: ")))
+  (if ent
+    (progn
+      (setq obj (vlax-ename->vla-object ent))
+      (if (vlax-property-available-p obj 'Area)
+        (progn
+          (setq sq_mt (vlax-get-property obj 'Area))
+          (setq total_guntas (/ sq_mt 101.171144375))
+          (setq acres (fix (/ total_guntas 40)))
+          (setq guntas (- total_guntas (* acres 40)))
+          
+          (if (< acres 10) 
+            (setq acres_str (strcat "0" (itoa acres))) 
+            (setq acres_str (itoa acres))
+          )
+          
+          (if (< guntas 10.0)
+            (setq gunthas_str (strcat "0" (rtos guntas 2 2)))
+            (setq gunthas_str (rtos guntas 2 2))
+          )
+          
+          (setq msg (strcat "\\n--- AREA DETAILS ---"
+                            "\\nAcres - Guntas: Ac. " acres_str " - " gunthas_str " Gts."
+                            "\\nSquare Meters : " (rtos sq_mt 2 6) " Sq. Mt."
+                    )
+          )
+          
+          (alert msg)
+          (princ msg)
+        )
+        (princ "\\nError: Selected object doesn't have an Area. Please select a Polyline.")
+      )
+    )
+    (princ "\\nNo object selected.")
+  )
+  (princ)
+)
+
+;; --- COMMAND 5: SQAREA (Area in Sq.m & Sq.ft at Center) ---
+(defun c:SQAREA (/ ent obj area_m area_f minPt maxPt centerPt text_content text_height)
+  (RE-CHECK-EXPIRY)
+  (setq ent (car (entsel "\\n[SQAREA] Select Polyline/Rectangle for Area: ")))
+  (if ent
+    (progn
+      (setq obj (vlax-ename->vla-object ent))
+      (if (vlax-property-available-p obj 'Area)
+        (progn
+          (setq area_m (vla-get-Area obj))
+          (setq area_f (* area_m 10.7639))
+          (vla-getboundingbox obj 'minPt 'maxPt)
+          (setq minPt (vlax-safearray->list minPt))
+          (setq maxPt (vlax-safearray->list maxPt))
+          (setq centerPt (mapcar '(lambda (a b) (/ (+ a b) 2.0)) minPt maxPt))
+          (setq text_content (strcat "AREA:\\n" (rtos area_m 2 2) " Sq.m\\n" (rtos area_f 2 2) " Sq.ft"))
+          (setq text_height (* (sqrt area_m) 0.04))
+          (if (< text_height 0.15) (setq text_height 0.15))
+          (entmake (list (cons 0 "MTEXT") (cons 100 "AcDbEntity") (cons 100 "AcDbMText") (cons 10 centerPt) (cons 40 text_height) (cons 1 text_content) (cons 71 5)))
+          (princ (strcat "\\nArea: " (rtos area_m 2 2) " Sq.m / " (rtos area_f 2 2) " Sq.ft")))
+        (alert "Selected object does not have an Area.")
+      )
+    )
+    (princ "\\nNo object selected.")
+  )
+  (princ)
+)
+
+
+;; ==========================================================================
+;;  PART 3: DIMENSIONING & LABELLING TOOLS (DALL, LMF2, PDALL, MF, RAM, FT)
+;; ==========================================================================
+
+;; --- COMMAND 6: DALL (Single Dimension - Dual Units Meters & Feet) ---
+(defun c:DALL ( / sel pt lastEnt newEnt dimData distVal feetVal txtStr)
+  (RE-CHECK-EXPIRY)
+  (setq sel (entsel "\\n[DALL] Select Line or Polyline segment: "))
+  (if sel
+    (progn
+      (setq pt (cadr sel))
+      (setq lastEnt (entlast))
+      (command "_.DIMALIGNED" "" pt pause)
+      (setq newEnt (entlast))
+      (if (not (equal lastEnt newEnt))
+        (progn
+          (setq dimData (entget newEnt))
+          (setq distVal (cdr (assoc 42 dimData)))
+          (setq feetVal (* distVal 3.2808399))
+          (setq txtStr (strcat (rtos distVal 2 2) " m\\\\P" (rtos feetVal 2 2) " ft"))
+          (setq dimData (subst (cons 1 txtStr) (assoc 1 dimData) dimData))
+          (entmod dimData)))
+    )
+    (princ "\\nNothing selected.")
+  )
+  (princ)
+)
+
+;; --- COMMAND 7: LMF2 (Meters & Feet Label Align to Line) ---
+(defun c:LMF2 (/ ent obj p1 p2 mid pt_text len_m len_f text_content text_height angle_rad)
+  (RE-CHECK-EXPIRY)
+  (setq ent (car (entsel "\\n[LMF2] Select Line to Label: ")))
+  (if ent
+    (progn
+      (setq obj (vlax-ename->vla-object ent))
+      (setq p1 (vlax-curve-getStartPoint obj))
+      (setq p2 (vlax-curve-getEndPoint obj))
+      (setq mid (mapcar '(lambda (a b) (/ (+ a b) 2.0)) p1 p2))
+      (setq len_m (vlax-curve-getDistAtParam obj (vlax-curve-getEndParam obj)))
+      (setq len_f (/ len_m 0.3048))
+      (setq text_content (strcat (rtos len_m 2 2) "m / " (rtos len_f 2 2) "ft"))
+      (setq text_height (* len_m 0.03)) 
+      (if (< text_height 0.1) (setq text_height 0.1))
+      (setq angle_rad (angle p1 p2))
+      (if (and (> angle_rad (/ pi 2)) (<= angle_rad (* 3 (/ pi 2))))
+        (setq angle_rad (- angle_rad pi))
+      )
+      (setq pt_text (polar mid (- angle_rad (/ pi 2)) (* text_height 1.5)))
+      (entmake (list (cons 0 "TEXT") (cons 10 pt_text) (cons 40 text_height) (cons 1 text_content) (cons 50 angle_rad) (cons 72 1) (cons 73 2) (cons 11 pt_text)))
+      (princ (strcat "\\nLabel created: " text_content)))
+    (princ "\\nNo line selected.")
+  )
+  (princ)
+)
+
+;; --- COMMAND 8: PDALL (Polyline Auto Dimension - Custom Text Size) ---
+(defun c:PDALL (/ ent obj endParam i p1 p2 ptMid dimObj distVal feetVal txtStr newDimEnt dimData myTextHeight)
+  (RE-CHECK-EXPIRY)
+  (setq myTextHeight (getreal "\\n[PDALL] Enter Text Height (e.g. 0.15 or 0.25): "))
+  (if (null myTextHeight) (setq myTextHeight 0.15))
+  (setq ent (car (entsel "\\nSelect Line or Polyline: ")))
+  (if ent
+    (progn
+      (setq obj (vlax-ename->vla-object ent))
+      (if (vl-catch-all-error-p (vl-catch-all-apply 'vlax-curve-getEndParam (list obj)))
+        (alert "Valid object not selected.")
+        (progn
+          (setq endParam (fix (vlax-curve-getEndParam obj)))
+          (setq i 0)
+          (repeat endParam
+            (setq p1 (vlax-curve-getPointAtParam obj i))
+            (setq p2 (vlax-curve-getPointAtParam obj (1+ i)))
+            (if (and p1 p2)
+              (progn
+                (setq ptMid (list (/ (+ (car p1) (car p2)) 2.0) (/ (+ (cadr p1) (cadr p2)) 2.0) 0.0))
+                (command "_.DIMALIGNED" "_non" p1 "_non" p2 "_non" ptMid)
+                (setq newDimEnt (entlast))
+                (setq dimData (entget newDimEnt))
+                (setq distVal (cdr (assoc 42 dimData)))
+                (setq feetVal (* distVal 3.2808399))
+                (setq txtStr (strcat (rtos distVal 2 2) " m\\\\P" (rtos feetVal 2 2) " ft"))
+                (setq dimData (subst (cons 1 txtStr) (assoc 1 dimData) dimData))
+                (if (assoc 140 dimData)
+                  (setq dimData (subst (cons 140 myTextHeight) (assoc 140 dimData) dimData))
+                  (setq dimData (append dimData (list (cons 140 myTextHeight))))
+                )
+                (entmod dimData)
+                (entupd newDimEnt)))
+            (setq i (1+ i))
+          )
+          (princ "\\nDimensions updated.")))
+    )
+    (princ "\\nNo object selected.")
+  )
+  (princ)
+)
+
+;; --- COMMAND 9: MF (BELOW Line Label - Meters & Feet-Inches) ---
+(defun c:MF (/ ent obj pt obj_type param idx p1 p2 dist m_val total_inches ft_part in_part f_val str mid ang current_h text_h ins_pt)
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq current_h (getvar "TEXTSIZE"))
+  (setq text_h (getreal (strcat "\\nEnter Text Height <" (rtos current_h 2 2) ">: ")))
+  (if (null text_h) (setq text_h current_h))
+  (setvar "TEXTSIZE" text_h) 
+
+  (while (setq ent (entsel "\\n[MF] Select Line or Polyline segment: "))
+    (setq obj (vlax-ename->vla-object (car ent)))
+    (setq pt (trans (cadr ent) 1 0))
+    (setq obj_type (vla-get-ObjectName obj))
+    (setq p1 nil)
+
+    (if (= obj_type "AcDbLine")
+      (progn
+        (setq p1 (vlax-get obj 'StartPoint))
+        (setq p2 (vlax-get obj 'EndPoint)))
+    )
+    (if (= obj_type "AcDbPolyline")
+      (progn
+        (setq pt (vlax-curve-getClosestPointTo obj pt))
+        (setq param (vlax-curve-getParamAtPoint obj pt))
+        (setq idx (fix param))
+        (setq p1 (vlax-curve-getPointAtParam obj idx))
+        (setq p2 (vlax-curve-getPointAtParam obj (1+ idx))))
+    )
+    (if p1
+      (progn
+        (setq dist (distance p1 p2))
+        (setq m_val (rtos dist 2 2))
+        
+        (setq total_inches (* dist 39.3700787))
+        (setq ft_part (fix (/ total_inches 12.0)))
+        (setq in_part (fix (+ 0.5 (- total_inches (* ft_part 12.0)))))
+        
+        (if (= in_part 12)
+          (progn
+            (setq ft_part (1+ ft_part))
+            (setq in_part 0))
+        )
+        
+        (setq f_val (strcat (itoa ft_part) "'-" (itoa in_part) "\\\""))
+        
+        (setq str (strcat m_val "m / " f_val))
+        (setq mid (mapcar '(lambda (a b) (/ (+ a b) 2.0)) p1 p2))
+        (setq ang (angle p1 p2))
+        (if (and (> ang (/ pi 2)) (<= ang (* 1.5 pi)))
+            (setq ang (+ ang pi))
+        )
+        (setq ins_pt (polar mid (- ang (/ pi 2.0)) (* text_h 1.3)))
+        (entmake (list (cons 0 "TEXT") (cons 10 ins_pt) (cons 11 ins_pt) (cons 40 text_h) (cons 1 str) (cons 50 ang) (cons 72 1) (cons 73 2))))
+      (princ "\\nNot a Line or Polyline.")
+    )
+  )
+  (princ)
+)
+
+;; --- COMMAND 10: RAM (BELOW Line Label - Rupees-Annas & Meters) ---
+;; EX: 15-5 (30.40m)
+(defun c:RAM (/ ent obj pt obj_type param idx p1 p2 dist annas_str text_str mid ang current_h text_h ins_pt)
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq current_h (getvar "TEXTSIZE"))
+  (setq text_h (getreal (strcat "\\nEnter Text Height <" (rtos current_h 2 2) ">: ")))
+  (if (null text_h) (setq text_h current_h))
+  (setvar "TEXTSIZE" text_h) 
+
+  (while (setq ent (entsel "\\n[RAM] Select Line or Polyline segment: "))
+    (setq obj (vlax-ename->vla-object (car ent)))
+    (setq pt (trans (cadr ent) 1 0))
+    (setq obj_type (vla-get-ObjectName obj))
+    (setq p1 nil)
+
+    (if (= obj_type "AcDbLine")
+      (progn
+        (setq p1 (vlax-get obj 'StartPoint))
+        (setq p2 (vlax-get obj 'EndPoint)))
+    )
+    (if (= obj_type "AcDbPolyline")
+      (progn
+        (setq pt (vlax-curve-getClosestPointTo obj pt))
+        (setq param (vlax-curve-getParamAtPoint obj pt))
+        (setq idx (fix param))
+        (setq p1 (vlax-curve-getPointAtParam obj idx))
+        (setq p2 (vlax-curve-getPointAtParam obj (1+ idx))))
+    )
+    (if p1
+      (progn
+        (setq dist (distance p1 p2))
+        (setq annas_str (meters-to-annas dist))
+        
+        ;; Format: "15-5 (30.40m)"
+        (setq text_str (strcat annas_str " (" (rtos dist 2 2) "m)"))
+        
+        (setq mid (mapcar '(lambda (a b) (/ (+ a b) 2.0)) p1 p2))
+        (setq ang (angle p1 p2))
+        (if (and (> ang (/ pi 2)) (<= ang (* 1.5 pi)))
+            (setq ang (+ ang pi))
+        )
+        (setq ins_pt (polar mid (- ang (/ pi 2.0)) (* text_h 1.3)))
+        (entmake (list (cons 0 "TEXT") (cons 10 ins_pt) (cons 11 ins_pt) (cons 40 text_h) (cons 1 text_str) (cons 50 ang) (cons 72 1) (cons 73 2))))
+      (princ "\\nNot a Line or Polyline.")
+    )
+  )
+  (princ)
+)
+
+;; --- COMMAND 11: FT (BELOW Line Label - ONLY Feet & Inches) ---
+;; EX: 15'-5"
+(defun c:FT (/ ent obj pt obj_type param idx p1 p2 dist total_inches ft_part in_part text_str mid ang current_h text_h ins_pt)
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq current_h (getvar "TEXTSIZE"))
+  (setq text_h (getreal (strcat "\\nEnter Text Height <" (rtos current_h 2 2) ">: ")))
+  (if (null text_h) (setq text_h current_h))
+  (setvar "TEXTSIZE" text_h) 
+
+  (while (setq ent (entsel "\\n[FT] Select Line or Polyline segment: "))
+    (setq obj (vlax-ename->vla-object (car ent)))
+    (setq pt (trans (cadr ent) 1 0))
+    (setq obj_type (vla-get-ObjectName obj))
+    (setq p1 nil)
+
+    (if (= obj_type "AcDbLine")
+      (progn
+        (setq p1 (vlax-get obj 'StartPoint))
+        (setq p2 (vlax-get obj 'EndPoint)))
+    )
+    (if (= obj_type "AcDbPolyline")
+      (progn
+        (setq pt (vlax-curve-getClosestPointTo obj pt))
+        (setq param (vlax-curve-getParamAtPoint obj pt))
+        (setq idx (fix param))
+        (setq p1 (vlax-curve-getPointAtParam obj idx))
+        (setq p2 (vlax-curve-getPointAtParam obj (1+ idx))))
+    )
+    (if p1
+      (progn
+        (setq dist (distance p1 p2))
+        
+        ;; Meters to Feet & Inches Calculator
+        (setq total_inches (* dist 39.3700787))
+        (setq ft_part (fix (/ total_inches 12.0)))
+        (setq in_part (fix (+ 0.5 (- total_inches (* ft_part 12.0)))))
+        
+        (if (= in_part 12)
+          (progn
+            (setq ft_part (1+ ft_part))
+            (setq in_part 0))
+        )
+        
+        ;; Format: 15'-5"
+        (setq text_str (strcat (itoa ft_part) "'-" (itoa in_part) "\\\""))
+        
+        (setq mid (mapcar '(lambda (a b) (/ (+ a b) 2.0)) p1 p2))
+        (setq ang (angle p1 p2))
+        (if (and (> ang (/ pi 2)) (<= ang (* 1.5 pi)))
+            (setq ang (+ ang pi))
+        )
+        (setq ins_pt (polar mid (- ang (/ pi 2.0)) (* text_h 1.3)))
+        (entmake (list (cons 0 "TEXT") (cons 10 ins_pt) (cons 11 ins_pt) (cons 40 text_h) (cons 1 text_str) (cons 50 ang) (cons 72 1) (cons 73 2))))
+      (princ "\\nNot a Line or Polyline.")
+    )
+  )
+  (princ)
+)
+
+;; --- COMMAND 12: TIPPON (Tippon Drawing - Number Pad Direction Drawing: 8-Up, 2-Down, 4-Left, 6-Right) ---
+(defun c:TIPPON (/ *error* val input len pos rupees annas total_annas dist_links dist_meters pt1 pt2 loop char keycode old_osmode FACTOR DIVISOR)
+  (RE-CHECK-EXPIRY)
+  (setq old_osmode (getvar "osmode"))
+
+  (defun *error* (msg)
+    (if old_osmode (setvar "osmode" old_osmode)) 
+    (setvar "cmdecho" 1)
+    (princ "\\nCommand Cancelled. Snaps Restored.")
+    (princ)
+  )
+
+  (setvar "cmdecho" 0)
+  (setvar "osmode" 16383) 
+  (setq pt1 (getpoint "\\n[TIPPON] Start Point Click Cheyandi: "))
+  
+  (if pt1
+    (progn
+      (setvar "osmode" 0) 
+      (setq loop T)
+      (princ "\\n------------------------------------------------")
+      (princ "\\nCOMMAND: TIPPON (Numpad Controls)")
+      (princ "\\n 8 = UP (Piki)")
+      (princ "\\n 2 = DOWN (Kindaki)")
+      (princ "\\n 4 = LEFT (Edamaki)")
+      (princ "\\n 6 = RIGHT (Kudiki)")
+      (princ "\\n------------------------------------------------")
+      
+      (setq FACTOR 3.143245866) 
+      (setq DIVISOR 5.0)        
+
+      (while loop
+        (setq input (getstring "\\nEnter value (e.g. 1-1) or ENTER to finish: "))
+        
+        (if (= input "")
+          (setq loop nil) 
+          (progn
+            (setq pos (vl-string-search "-" input))
+            (if pos
+              (progn
+                (setq rupees (atof (substr input 1 pos)))
+                (setq annas (atof (substr input (+ pos 2))))
+                (setq total_annas (+ (* rupees 16) annas))
+                (setq dist_links (* total_annas FACTOR))
+                (setq dist_meters (/ dist_links DIVISOR))
+              )
+              (if (distof input)
+                (setq dist_meters (atof input))
+                (setq dist_meters 0.0) 
+              )
+            )
+            
+            (if (> dist_meters 0)
+                (progn
+                    (princ (strcat "\\nLength: " (rtos dist_meters 2 3) "m. Press 8/2/4/6 on Numpad: "))
+                    (setq keycode (grread))
+                    (setq char (cadr keycode))
+                    (setq pt2 nil)
+                    
+                    (cond
+                      ((= char 56) 
+                       (setq pt2 (polar pt1 (/ pi 2) dist_meters))
+                       (wa_draw_line_text pt1 pt2 input dist_meters)
+                       (setq pt1 pt2) 
+                       (princ " -> UP")
+                       )
+                      ((= char 50) 
+                       (setq pt2 (polar pt1 (* 1.5 pi) dist_meters))
+                       (wa_draw_line_text pt1 pt2 input dist_meters)
+                       (setq pt1 pt2) 
+                       (princ " -> DOWN")
+                       )
+                      ((= char 52) 
+                       (setq pt2 (polar pt1 pi dist_meters))
+                       (wa_draw_line_text pt1 pt2 input dist_meters)
+                       (setq pt1 pt2) 
+                       (princ " -> LEFT")
+                       )
+                      ((= char 54) 
+                       (setq pt2 (polar pt1 0.0 dist_meters))
+                       (wa_draw_line_text pt1 pt2 input dist_meters)
+                       (setq pt1 pt2) 
+                       (princ " -> RIGHT")
+                       )
+                      (T (princ "\\nInvalid Key. Use 8, 2, 4, 6."))
+                    )
+                )
+                (princ "\\nInvalid Distance.")
+            ) 
+          ) 
+        ) 
+      ) 
+    ) 
+  ) 
+  
+  (setvar "osmode" old_osmode) 
+  (princ "\\nDone.")
+  (princ)
+)
+
+(defun wa_draw_line_text (p1 p2 txt meters / midp txt_hgt full_text ang_rad ang_deg txt_pt offset_dist perp_ang)
+  (command "_.LINE" "_non" p1 "_non" p2 "")
+  (setq midp (list (/ (+ (car p1) (car p2)) 2.0) (/ (+ (cadr p1) (cadr p2)) 2.0) 0.0))
+  (setq ang_rad (angle p1 p2))
+  (setq ang_deg (* 180.0 (/ ang_rad pi)))
+  
+  (if (and (> ang_deg 90) (<= ang_deg 270))
+      (setq ang_deg (+ ang_deg 180))
+  )
+
+  (setq txt_hgt (+ 0.04 (* meters 0.02))) 
+  (if (> txt_hgt 3.0) (setq txt_hgt 3.0)) 
+
+  (setq offset_dist (* txt_hgt 0.7)) 
+  (setq perp_ang (+ ang_rad (/ pi 2)))
+  (setq txt_pt (polar midp perp_ang offset_dist))
+
+  (setq full_text (strcat txt " (" (rtos meters 2 2) "m)"))
+  (command "_.TEXT" "_j" "_mc" "_non" txt_pt txt_hgt ang_deg full_text)
+)
+
+
+;; --- COMMAND 13: TFC (Tippon Fix & Connect with Auto Label Update up to 50m) ---
+(defun c:TFC (/ *error* ent obj p1 p2 pick_pt target_pt which_end
+                old_len new_len old_osmode diff_val)
+
+  (defun *error* (msg)
+    (if old_osmode (setvar "osmode" old_osmode))
+    (setvar "cmdecho" 1)
+    (if (and msg
+             (/= (strcase msg) "FUNCTION CANCELLED")
+             (/= (strcase msg) "QUIT / EXIT ABORT"))
+      (princ (strcat "\\n[TFC] Error: " msg))
+    )
+    (princ)
+  )
+
+  (RE-CHECK-EXPIRY)
+  (setvar "cmdecho" 0)
+  (setq old_osmode (getvar "osmode"))
+
+  (princ "\\n========================================")
+  (princ "\\n  TFC - Tippon Fix, Connect (v3)")
+  (princ "\\n  Line ni fix cheyali - end daggara click cheyandi")
+  (princ "\\n========================================")
+
+  (setq ent (entsel "\\n[TFC] Select Line (click near the loose end): "))
+
+  (cond
+    ((not ent)
+     (princ "\\n[TFC] STOPPED: No line selected.")
+    )
+
+    ((/= (vla-get-ObjectName (vlax-ename->vla-object (car ent))) "AcDbLine")
+     (princ "\\n[TFC] STOPPED: Only simple LINE entities supported.")
+    )
+
+    (T
+     (setq obj (vlax-ename->vla-object (car ent)))
+     (setq pick_pt (trans (cadr ent) 1 0))
+     (setq p1 (vlax-get obj 'StartPoint))
+     (setq p2 (vlax-get obj 'EndPoint))
+     (setq old_len (distance p1 p2))
+
+     (if (< (distance pick_pt p1) (distance pick_pt p2))
+       (setq which_end "start")
+       (setq which_end "end")
+     )
+
+     (setvar "osmode" 1)
+     (setq target_pt (getpoint "\\n[TFC] Snap to TARGET point (other line's endpoint): "))
+     (setvar "osmode" old_osmode)
+
+     (if (not target_pt)
+       (princ "\\n[TFC] STOPPED: No target point picked.")
+
+       (progn
+         (if (= which_end "start")
+           (setq new_len (distance target_pt p2))
+           (setq new_len (distance p1 target_pt))
+         )
+         (setq diff_val (- new_len old_len))
+
+         (update-associated-text (car ent) new_len)
+
+         (if (= which_end "start")
+           (vla-put-StartPoint obj (vlax-3d-point target_pt))
+           (vla-put-EndPoint obj (vlax-3d-point target_pt))
+         )
+
+         (princ (strcat "\\n[TFC] Old Length : " (rtos old_len 2 3) " m"))
+         (princ (strcat "\\n[TFC] New Length : " (rtos new_len 2 3) " m"))
+         (princ (strcat "\\n[TFC] "
+                        (if (> diff_val 0.0)
+                          (strcat "GAP FILLED (+" (rtos diff_val 2 3) " m)")
+                          (strcat "OVERLAP CUT (" (rtos diff_val 2 3) " m)")
+                        )))
+       )
+     )
+    )
+  )
+
+  (setvar "osmode" old_osmode)
+  (princ)
+)
+
+(princ "\\n=======================================================")
+(princ "\\n       ⚡ BRAHMANEE SUPER MASTER LISP LOADED ⚡")
+(princ "\\n=======================================================")
+(princ "\\n  Auth: NARRI ANEL KKUMAR | Contact: +91 7711889955")
+(princ "\\n=======================================================")
+(princ)
+`;
+```[cite: 1]
+
+---
+
+### 🖥️ 4. `src/data/commandsData.ts`
+```typescript
+import { LispCommand } from '../types';
+
+export const LISP_COMMANDS: LispCommand[] = [
+  {
+    id: 'tippon',
+    name: 'TIPPON',
+    category: 'tippon',
+    shortDescEn: 'Numpad Directional Tippon Drawing in Rupee-Annas',
+    shortDescTe: 'నంపాడ్ దిశలతో (8,2,4,6) రూపాయిలు-ఆణాలలో టిప్పన్ డ్రాయింగ్ వేయుటకు',
+    longDescEn: 'Draw Tippon field survey lines seamlessly using keypad directions (8=UP, 2=DOWN, 4=LEFT, 6=RIGHT). Input dimensions directly as Rupees-Annas (e.g. 15-5 or 12-8), and the LISP automatically converts them to Links and exact Meters, drawing lines and placing labels.',
+    longDescTe: 'కంప్యూటర్ కీబోర్డ్ నంపాడ్ (8=పైకి, 2=కిందికి, 4=ఎడమ, 6=కుడి) ఉపయోగించి సులభంగా టిప్పన్ పటం వేయవచ్చు. కొలతలు నేరుగా "15-5" (15 రూపాయిల 5 ఆణాలు) రూపంలో టైప్ చేస్తే, అది ఆటోమేటిక్‌గా లింకులు, మీటర్లుగా మారి లైన్ & లేబుల్ డ్రా అవుతుంది.',
+    syntax: 'TIPPON -> Click Start Point -> Enter Rs-Annas (e.g. 15-5) -> Press Numpad Key (8/2/4/6)',
+    exampleUsage: 'Command: TIPPON\nPick Start Point\nEnter value: 15-5\nPress 8 (UP) -> Draws line upwards with label "15-5 (30.40m)"',
+    keyFeatures: [
+      'Direct Rupees-Annas input (e.g. 15-5, 12-8, 10-0)',
+      'Numpad controls: 8 (Up), 2 (Down), 4 (Left), 6 (Right)',
+      'Automatic Links to Meters calculation: Links = Total Annas * 3.1432, Meters = Links / 5',
+      'Auto line labeling with Rupees-Annas & Meters format'
+    ],
+    iconName: 'Compass'
+  },
+  {
+    id: 'tfc',
+    name: 'TFC',
+    category: 'tippon',
+    shortDescEn: 'Tippon Fix & Connect with Dynamic Label Update (up to 50m)',
+    shortDescTe: 'టిప్పన్ గ్యాప్‌లు, ఓవర్‌ల్యాప్‌లు ఫిక్స్ చేస్తూ లేబుల్‌ను ఆటోమేటిక్‌గా అప్‌డేట్ చేస్తుంది',
+    longDescEn: 'Fix gaps and overlaps after aligning Tippon drawings. Select line end and target point. TFC stretches/trims the line and dynamically searches up to 50 meters radius to automatically update nearby Rupees-Annas and Meters text labels!',
+    longDescTe: 'టిప్పన్ డ్రాయింగ్స్‌లో చివర్లలో వచ్చే గ్యాప్‌లు (Gaps) లేదా ఓవర్‌ల్యాప్‌లను (Overlaps) సరిచేయడానికి ఉపయోగపడుతుంది. లైన్‌ను జాయిన్ చేస్తూ, దాని వద్ద ఉన్న రూపాయి-ఆణాల లేబుల్‌ను 50 మీటర్ల పరిధి వరకు ఆటోమేటిక్‌గా అప్‌డేట్ చేస్తుంది.',
+    syntax: 'TFC -> Select Line near loose end -> Click target endpoint to snap',
+    exampleUsage: 'Command: TFC\nSelect Line near endpoint\nSnap to target point\nResult: Line endpoint adjusts & label updates from "15-5 (30.40m)" to "15-8 (31.00m)"',
+    keyFeatures: [
+      'Automatic gap filling & overlap trimming',
+      'Dynamic radius label search (3m, 10m, 25m, 50m)',
+      'Preserves accuracy of all other survey lines',
+      'Re-calculates exact Rupees-Annas & Meters automatically'
+    ],
+    iconName: 'Unlink'
+  },
+  {
+    id: 'ram',
+    name: 'RAM',
+    category: 'labeling',
+    shortDescEn: 'Below Line Labeling in Rupees-Annas & Meters',
+    shortDescTe: 'లైన్ కింద రూపాయిలు-ఆణాలు మరియు మీటర్ల లేబుల్ వేయుటకు',
+    longDescEn: 'Select any Line or Polyline segment to place a aligned text label directly below the line showing Rupees-Annas and Meters (e.g. 15-5 (30.40m)).',
+    longDescTe: 'లైన్ లేదా పాలిలైన్‌ను సెలెక్ట్ చేస్తే, ఆ లైన్ కింద అలైన్ అవుతూ రూపాయిలు-ఆణాలు మరియు బ్రాకెట్‌లో మీటర్ల లేబుల్ (ఉదా: 15-5 (30.40m)) నిమిషాల్లో ప్రత్యక్షమవుతుంది.',
+    syntax: 'RAM -> Enter Text Height -> Select Line / Polyline segment',
+    exampleUsage: 'Command: RAM\nEnter Text Height: 0.25\nSelect Line -> Places "15-5 (30.40m)" aligned below the segment.',
+    keyFeatures: [
+      'Supports both Line and Polyline segments',
+      'Auto angle detection (reads left-to-right, non-upside-down)',
+      'Adjustable text height parameter',
+      'Standard Telangana revenue format: "Rs-Annas (Meters)"'
+    ],
+    iconName: 'Tag'
+  },
+  {
+    id: 'mf',
+    name: 'MF',
+    category: 'labeling',
+    shortDescEn: 'Below Line Labeling in Meters & Feet-Inches',
+    shortDescTe: 'లైన్ కింద మీటర్లు మరియు ఫీట్లు-అంగుళాలు లేబుల్ వేయుటకు',
+    longDescEn: 'Places dual unit measurement label below selected line showing meters and feet-inches format (e.g. 10.00m / 32\'-9").',
+    longDescTe: 'లైన్ కింద మీటర్లు మరియు ఫీట్లు-అంగుళాల రూపంలో (ఉదా: 10.00m / 32\'-9") ద్వంద్వ కొలతల లేబుల్‌ను ఉంచుతుంది.',
+    syntax: 'MF -> Enter Text Height -> Select Line / Polyline segment',
+    exampleUsage: 'Command: MF\nSelect Line -> Creates label: "10.00m / 32\'-9\\""',
+    keyFeatures: [
+      'Exact conversion from Meters to Feet and Inches',
+      'Clean readable alignment along line angle',
+      'Saves manual conversion time on field site maps'
+    ],
+    iconName: 'Ruler'
+  },
+  {
+    id: 'ft',
+    name: 'FT',
+    category: 'labeling',
+    shortDescEn: 'Below Line Labeling in Only Feet & Inches',
+    shortDescTe: 'కేవలం ఫీట్లు మరియు అంగుళాలలో (Feet & Inches) లేబుల్ వేయుటకు',
+    longDescEn: 'Calculates the metric length of line and converts it purely to feet and inches format (e.g., 15\'-5").',
+    longDescTe: 'మీటర్లలో ఉన్న కొలతను కేవలం ఫీట్లు మరియు అంగుళాలలో (ఉదా: 15\'-5") లైన్ కింద డిస్ప్లే చేస్తుంది.',
+    syntax: 'FT -> Enter Text Height -> Select Line / Polyline segment',
+    exampleUsage: 'Command: FT\nSelect Line -> Output: "15\'-5\\""',
+    keyFeatures: [
+      'Pure Feet & Inches display (Feet\'-Inches")',
+      'Rounds inches cleanly for land boundary drawings'
+    ],
+    iconName: 'CaseSensitive'
+  },
+  {
+    id: 'acgt',
+    name: 'ACGT',
+    category: 'area',
+    shortDescEn: 'Area Labeling in Acres & Gunthas (Ac. 02 - 10.00 Gts.)',
+    shortDescTe: 'పాలిలైన్ యొక్క విస్తీర్ణాన్ని ఎకరాలు మరియు గుంటలలో వేయుటకు',
+    longDescEn: 'Select any closed polyline plot boundary to automatically compute area in Acres and Gunthas (1 Acre = 40 Gunthas = 4046.85 Sq.m) and place text.',
+    longDescTe: 'మూసివున్న పాలిలైన్ (Closed Polyline) స్థలాన్ని సెలెక్ట్ చేస్తే, దాని వైశాల్యాన్ని ఎకరాలు మరియు గుంటలు (ఉదా: Ac. 02 - 10.00 Gts.) గా లెక్కించి డ్రాయింగ్‌లో డిస్ప్లే చేస్తుంది.',
+    syntax: 'ACGT -> Select Closed Polyline -> Pick Text Insertion Point',
+    exampleUsage: 'Command: ACGT\nSelect Polyline -> Pick Point -> Placed: "Ac. 02 - 10.00 Gts."',
+    keyFeatures: [
+      'Standard Telangana conversion: 1 Acre = 40 Gunthas',
+      'Formatted with leading zeros (e.g. Ac. 01 - 05.50 Gts.)',
+      'Instant text placement anywhere inside or outside land polygon'
+    ],
+    iconName: 'PieChart'
+  },
+  {
+    id: 'chkarea',
+    name: 'CHKAREA',
+    category: 'area',
+    shortDescEn: 'Area Details Dialog Box & Command Line Print',
+    shortDescTe: 'స్థలం యొక్క వైశాల్య వివరాలు (Sq.Meters, Acres, Gunthas) అలర్ట్ బాక్స్‌లో చూపిస్తుంది',
+    longDescEn: 'Quick verification tool. Select a polyline and instantly see a pop-up alert dialog showing exact area in Sq.Meters, Acres, and Gunthas without modifying drawing.',
+    longDescTe: 'డ్రాయింగ్‌ను మార్చకుండా వెంటనే స్థలం విస్తీర్ణాన్ని సరిచూసుకోవడానికి పాలిలైన్‌పై క్లిక్ చేస్తే పాప్‌అప్ విండోలో (Alert Box) చదరపు మీటర్లు, ఎకరాలు & గుంటలు వివరంగా చూపిస్తుంది.',
+    syntax: 'CHKAREA -> Select Polyline',
+    exampleUsage: 'Command: CHKAREA\nSelect Polyline -> Displays alert box with Acres-Gunthas & Sq.Meters details.',
+    keyFeatures: [
+      'Instant verification without adding text entities',
+      'Prints report to AutoCAD command line log',
+      'High precision decimal calculations'
+    ],
+    iconName: 'Info'
+  },
+  {
+    id: 'sqarea',
+    name: 'SQAREA',
+    category: 'area',
+    shortDescEn: 'Place Centered Area Text in Sq.m & Sq.ft',
+    shortDescTe: 'సెంటర్‌లో చదరపు మీటర్లు మరియు చదరపు ఫీట్ల విస్తీర్ణం టెక్స్ట్ రాయడానికి',
+    longDescEn: 'Calculates polyline area and automatically places a centered multi-line text (MTEXT) inside the plot showing area in Sq.m and Sq.ft.',
+    longDescTe: 'స్థలం పాలిలైన్ సెంటర్‌లో ఆటోమేటిక్‌గా "AREA: 100.00 Sq.m / 1076.39 Sq.ft" టెక్స్ట్‌ను తగిన సైజులో ప్లేస్ చేస్తుంది.',
+    syntax: 'SQAREA -> Select Polyline / Rectangle',
+    exampleUsage: 'Command: SQAREA\nSelect Rectangle -> Places MTEXT at center with Sq.m and Sq.ft',
+    keyFeatures: [
+      'Automatic plot center bounding box calculation',
+      'Dynamic text sizing based on plot area',
+      'Dual unit Sq.m / Sq.ft display'
+    ],
+    iconName: 'Grid'
+  },
+  {
+    id: 'ctable',
+    name: 'CTABLE',
+    category: 'tables',
+    shortDescEn: 'Survey Coordinate Table Generator (S.No, X, Y)',
+    shortDescTe: 'సర్వే పాయింట్ల కోఆర్డినేట్స్ టేబుల్ (S.No, X, Y) స్వయంచాలకంగా తయారు చేయుటకు',
+    longDescEn: 'Generate clean AutoCAD tables for survey boundary points. Pick table insertion point, click survey points sequentially, and CTABLE auto-generates S.No, X (Easting), Y (Northing) rows and places POINT markers.',
+    longDescTe: 'సర్వే భూమి మూలల (Coordinates) పాయింట్ల టేబుల్‌ను క్షణాల్లో తయారు చేస్తుంది. టేబుల్ లొకేషన్ పిక్ చేసి, డ్రాయింగ్‌లోని పాయింట్లపై క్లిక్ చేసుకుంటూ వెళ్తే S.No, X, Y కోఆర్డినేట్స్ టేబుల్ తయారవుతుంది.',
+    syntax: 'CTABLE -> Select Style (Simple/Survey/Equals) -> Enter Text Height -> Pick Table Location -> Click Points',
+    exampleUsage: 'Command: CTABLE\nChoice: 2 (Survey N/E)\nPick Table Top-Left\nClick Points on boundary -> Auto builds grid table!',
+    keyFeatures: [
+      '3 Display Styles: 1) Simple, 2) Survey (E/N), 3) Equals (X=/Y=)',
+      'Auto S.No numbering and POINT entity creation',
+      'Customizable text height and grid row heights'
+    ],
+    iconName: 'Table'
+  },
+  {
+    id: 'lgtable',
+    name: 'LGTABLE',
+    category: 'tables',
+    shortDescEn: 'Survey Legend Table Generator with Color Hatch',
+    shortDescTe: 'సర్వే లెజెండ్ టేబుల్ (Sy.No, వర్గీకరణ, విస్తీర్ణం, కలర్ హ్యాచ్) క్రియేట్ చేయడానికి',
+    longDescEn: 'Create professional Land Revenue Legend Tables. Inputs S.No, Sy.No, Classification (లావణి/పట్టా/గైరాన్), Extent (Acres-Gunthas), and assigns a solid color hatch to the Legend box.',
+    longDescTe: 'రెవెన్యూ సర్వే పటాలలో లెజెండ్ టేబుల్ తయారు చేయడానికి. సర్వే నంబర్, క్లాసిఫికేషన్, ఎక్స్‌టెంట్ వివరాలు ఇస్తే ఆటోమేటిక్‌గా కలర్ హ్యాచ్‌తో సుందరమైన టేబుల్ క్రియేట్ అవుతుంది.',
+    syntax: 'LGTABLE -> Enter Text Height -> Enter Total Rows -> Pick Location -> Input Row Data & Choose Hatch Color',
+    exampleUsage: 'Command: LGTABLE\nRows: 3\nRow 1: Sy.No 12/A, Class: Patta Land, Extent: Ac 02-10, Color: 3 (Green)',
+    keyFeatures: [
+      'Pre-drawn clean grid structure',
+      'Solid color legend hatch generator (Red, Yellow, Green, Cyan, Blue, Magenta, White)',
+      'Sequential interactive prompt for quick survey legend setup'
+    ],
+    iconName: 'LayoutGrid'
+  },
+  {
+    id: 'dall',
+    name: 'DALL',
+    category: 'dimensions',
+    shortDescEn: 'Dual Unit Dimensioning (Meters & Feet stacked)',
+    shortDescTe: 'లైన్ యొక్క మీటర్లు మరియు ఫీట్ల డైమెన్షన్ (Aligned Dimension) ఒకేసారి వేయుటకు',
+    longDescEn: 'Creates a native AutoCAD Aligned Dimension entity with override text displaying distance in Meters stacked over Feet (e.g., "10.00 m \\P 32.81 ft").',
+    longDescTe: 'లైన్ యొక్క డైమెన్షన్ ఇస్తూ, దానిలో మీటర్లు మరియు ఫీట్లను ఒకే బాక్స్‌లో డ్యూయల్ యూనిట్లుగా డిస్ప్లే చేస్తుంది.',
+    syntax: 'DALL -> Select Line segment -> Pick Dimension Line Location',
+    exampleUsage: 'Command: DALL\nSelect Line -> Places dimension with "10.00 m / 32.81 ft"',
+    keyFeatures: [
+      'True AutoCAD Dimension object',
+      'Stacked multi-line display',
+      'Precision to 2 decimal places'
+    ],
+    iconName: 'Scaling'
+  },
+  {
+    id: 'pdall',
+    name: 'PDALL',
+    category: 'dimensions',
+    shortDescEn: 'Batch Auto Dimension Polyline with Custom Text Height',
+    shortDescTe: 'పాలిలైన్ లోని అన్ని లైన్లకు ఒకేసారి డ్యూయల్ డైమెన్షన్्स (Meters & Feet) వేయుటకు',
+    longDescEn: 'Select any continuous polyline and PDALL automatically loops through every segment, creating dual unit aligned dimensions for all sides in one click!',
+    longDescTe: 'పాలిలైన్‌పై ఒక్క క్లిక్ చేస్తే, దానిలోని ప్రతీ లైన్ సెగ్మెంట్‌కు ఒకేసారి మీటర్లు & ఫీట్ల డైమెన్షన్స్ ఆటోమేటిక్‌గా జనరేట్ అవుతాయి.',
+    syntax: 'PDALL -> Enter Text Height (e.g. 0.25) -> Select Polyline',
+    exampleUsage: 'Command: PDALL\nText Height: 0.25\nSelect Polyline -> Auto dimensions all 6 boundary segments!',
+    keyFeatures: [
+      'Loops through all polyline vertices automatically',
+      'User-defined dimension text height override',
+      'Enormous time saver for complex multi-sided boundary plots'
+    ],
+    iconName: 'Boxes'
+  },
+  {
+    id: 'lmf2',
+    name: 'LMF2',
+    category: 'dimensions',
+    shortDescEn: 'Dual Units Meters/Feet Label Aligned Parallel to Line',
+    shortDescTe: 'లైన్ కోణానికి సమాంతరంగా మీటర్లు/ఫీట్లు లేబుల్ అలైన్ చేయుటకు',
+    longDescEn: 'Creates single-line text aligned parallel to line angle at comfortable offset showing "10.00m / 32.81ft". Automatically flips text to keep it right-side up.',
+    longDescTe: 'లైన్ కోణానికి (Angle) అనుగుణంగా తిరుగుతూ మీటర్లు మరియు ఫీట్ల టెక్స్ట్‌ను పారలల్‌గా అలైన్ చేస్తుంది.',
+    syntax: 'LMF2 -> Select Line',
+    exampleUsage: 'Command: LMF2\nSelect Line -> Creates inline label: "15.20m / 49.87ft"',
+    keyFeatures: [
+      'Automatic rotation angle alignment',
+      'Flipping logic prevents upside-down text',
+      'Proportional text height based on segment length'
+    ],
+    iconName: 'Maximize2'
+  }
+];
+```[cite: 1]
+
+---
+
+### 📊 5. `src/data/comparisonData.ts`
+```typescript
+import { ComparisonFeature } from '../types';
+
+export const COMPARISON_FEATURES: ComparisonFeature[] = [
+  {
+    featureEn: 'Tippon Drawing Method',
+    featureTe: 'టిప్పన్ పటం వేసే విధానం',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'Slow manual coordinate typing or cumbersome multi-step dialogs.',
+      descriptionTe: 'మాన్యువల్‌గా కోఆర్డినేట్స్ టైప్ చేయడం లేదా క్లిష్టమైన డైలాగ్ బాక్స్‌లు నింపాలి.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'Instant Numpad Direction Drawing (8=Up, 2=Down, 4=Left, 6=Right) right in AutoCAD.',
+      descriptionTe: 'కీబోర్డ్ నంపాడ్ (8, 2, 4, 6) ద్వారా కేవలం కొలత కొట్టి బాణం గుర్తులతో క్షణాల్లో వేయవచ్చు.'
+    }
+  },
+  {
+    featureEn: 'Rupee-Annas Input System',
+    featureTe: 'రూపాయిలు-ఆణాల ఎంట్రీ విధానం',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'Requires manual pre-conversion using external charts or calculator.',
+      descriptionTe: 'బయట క్యాలిక్యులేటర్ లేదా చార్ట్ చూసి మీటర్లలోకి మార్చుకొని ఎంటర్ చేయాలి.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'Direct "15-5" or "12-8" entry. LISP automatically calculates exact Links & Meters.',
+      descriptionTe: 'నేరుగా "15-5" లేదా "12-8" అని టైప్ చేస్తే ఆటోమేటిక్‌గా లింకులు & మీటర్లు లెక్కించబడతాయి.'
+    }
+  },
+  {
+    featureEn: 'Fixing Corner Gaps & Overlaps',
+    featureTe: 'మూలల గ్యాప్‌లు, ఓవర్‌ల్యాప్‌లు సరిచేయడం',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'Modifying line length ruins labels or distorts entire survey drawing.',
+      descriptionTe: 'లైన్ జాయిన్ చేస్తే టెక్స్ట్ మిస్ అవుతుంది లేదా పటం మొత్తం పాడవుతుంది.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'TFC Command stretches/cuts lines while auto-updating nearby Rs-Annas text up to 50m!',
+      descriptionTe: 'TFC కమాండ్ ద్వారా జాయిన్ చేస్తే 50 మీటర్ల పరిధిలోని రూపాయి-ఆణాలు టెక్స్ట్ ఆటోమేటిక్‌గా రీ-క్యాలిక్యులేట్ అవుతుంది.'
+    }
+  },
+  {
+    featureEn: 'AutoCAD Native Compatibility',
+    featureTe: 'ఆటోక్యాడ్ సాఫ్ట్‌వేర్ అనుకూలత',
+    bhumithi: {
+      status: 'average',
+      descriptionEn: 'Separate external application; export issues with standard CAD layers.',
+      descriptionTe: 'బయట వేరే సాఫ్ట్‌వేర్ వాడుకోవాలి; ఆటోక్యాడ్‌లోకి ఇంపోర్ట్ చేయడానికి ఇబ్బందులు.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'Runs directly inside any AutoCAD version (2010 to 2026+) using simple APPLOAD.',
+      descriptionTe: 'ఏ ఆటోక్యాడ్ వెర్షన్‌లోనైనా (2010 నుండి 2026+) APPLOAD ద్వారా రన్ అవుతుంది.'
+    }
+  },
+  {
+    featureEn: 'Survey Coordinate Tables',
+    featureTe: 'కోఆర్డినేట్స్ టేబుల్ జనరేషన్ (X, Y)',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'Manual table drawing or limited table export formats.',
+      descriptionTe: 'టేబుల్స్ చేతితో గీసుకోవడం లేదా టేబుల్ ఫార్మాట్స్ పరిమితంగా ఉండటం.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'CTABLE generates automated grid table with S.No, X, Y coordinates in 3 styles.',
+      descriptionTe: 'CTABLE ద్వారా పాయింట్లపై క్లిక్ చేస్తే చాలు... S.No, X, Y టేబుల్ ఆటోమేటిక్‌గా తయారవుతుంది.'
+    }
+  },
+  {
+    featureEn: 'Land Legend & Classification Tables',
+    featureTe: 'భూమి వర్గీకరణ లెజెండ్ టేబుల్స్',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'No automatic legend color hatch or classification table tool.',
+      descriptionTe: 'పట్టా/గైరాన్/లావణి భూముల కలర్ హ్యాచ్ లెజెండ్ టేబుల్స్ సౌకర్యం లేదు.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'LGTABLE auto-builds revenue legend tables with Sy.No, Extent, and color hatches.',
+      descriptionTe: 'LGTABLE ద్వారా సర్వే నంబర్, క్లాసిఫికేషన్, ఎక్స్‌టెంట్ వివరాలతో రంగుల హ్యాచ్ టేబుల్ రెడీ.'
+    }
+  },
+  {
+    featureEn: 'Area Calculation & Units',
+    featureTe: 'విస్తీర్ణం గుంటలు & ఎకరాలలో',
+    bhumithi: {
+      status: 'average',
+      descriptionEn: 'Basic area display, limited Telangana revenue terminology support.',
+      descriptionTe: 'సాధారణ విస్తీర్ణం మాత్రమే చూపిస్తుంది; తెలంగాణ గుంటల ఫార్మాట్ ఉండదు.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'ACGT, CHKAREA, SQAREA give instant Acres-Gunthas (Ac 02-10 Gts) & Sq.m/Sq.ft.',
+      descriptionTe: 'ACGT మరియు CHKAREA లతో ఎకరాలు - గుంటలు (Ac 02 - 10 Gts) & చదరపు మీటర్లలో నిమిషాల్లో లెక్కింపు.'
+    }
+  },
+  {
+    featureEn: 'Labeling & Unit Flexibility',
+    featureTe: 'మీటర్లు, ఫీట్లు, రూపాయి-ఆణాలు లేబులింగ్',
+    bhumithi: {
+      status: 'poor',
+      descriptionEn: 'Single unit view; requires manual text typing for below-line measurements.',
+      descriptionTe: 'ఒకే యూనిట్ లో చూపిస్తుంది; లైన్ కింద టెక్స్ట్ రాయడానికి చాలా సమయం పడుతుంది.'
+    },
+    seedCad: {
+      status: 'excellent',
+      descriptionEn: 'RAM, MF, FT, DALL, PDALL, LMF2 give multi-unit parallel & stacked labels.',
+      descriptionTe: 'RAM, MF, FT, DALL ద్వారా రూపాయి-ఆణాలు, మీటర్లు, ఫీట్లను లైన్ కింద అలైన్ చేసి చూపిస్తుంది.'
+    }
+  }
+];
+```[cite: 1]
+
+---
+
+### 🌐 6. `src/components/Header.tsx`
+```typescript
+import React, { useState } from 'react';
+import { Compass, Phone, Download, Youtube, Award, Menu, X, Globe } from 'lucide-react';
+
+interface HeaderProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  lang: 'te' | 'en';
+  setLang: (lang: 'te' | 'en') => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, lang, setLang }) => {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navLinks = [
+    { id: 'comparison', labelEn: 'Bhumithi vs SEED CAD', labelTe: 'భూమితి VS సీడ్ క్యాడ్' },
+    { id: 'simulator', labelEn: 'Tippon Simulator', labelTe: 'టిప్పన్ సిమ్యులేటర్' },
+    { id: 'converter', labelEn: 'Land Unit Calculator', labelTe: 'కొలతల క్యాలిక్యులేటర్' },
+    { id: 'commands', labelEn: '13 LISP Commands', labelTe: '13 కమాండ్స్ వివరాలు' },
+    { id: 'youtube', labelEn: 'YouTube Channel', labelTe: 'యూట్యూబ్ ఛానెల్' },
+    { id: 'download', labelEn: 'Download & License', labelTe: 'డౌన్‌లోడ్ & లైసెన్స్' },
+  ];
+
+  const handleNavClick = (id: string) => {
+    setActiveTab(id);
+    setMobileMenuOpen(false);
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  return (
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-20">
+          
+          <div className="flex items-center space-x-3 cursor-pointer" onClick={() => handleNavClick('hero')}>
+            <div className="w-10 h-10 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 shrink-0">
+              <Compass className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="text-xl font-bold tracking-tight text-slate-800 font-mono">SEED <span className="text-indigo-600">CAD</span></span>
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 rounded-full uppercase tracking-wider">
+                  Telangana Survey
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium">
+                {lang === 'te' ? 'భూమి కొలతలు & టిప్పన్ డ్రాయింగ్స్' : 'Land Surveying & Tippon AutoCAD Tools'}
+              </p>
+            </div>
+          </div>
+
+          <nav className="hidden lg:flex items-center space-x-1">
+            {navLinks.map((link) => (
+              <button
+                key={link.id}
+                onClick={() => handleNavClick(link.id)}
+                className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  activeTab === link.id
+                    ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm'
+                    : 'text-slate-600 hover:text-indigo-600 hover:bg-slate-100'
+                }`}
+              >
+                {lang === 'te' ? link.labelTe : link.labelEn}
+              </button>
+            ))}
+          </nav>
+
+          <div className="hidden md:flex items-center space-x-3">
+            <button
+              onClick={() => setLang(lang === 'te' ? 'en' : 'te')}
+              className="flex items-center space-x-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700 border border-slate-200 transition"
+              title="Toggle Telugu / English"
+            >
+              <Globe className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{lang === 'te' ? 'English' : 'తెలుగు'}</span>
+            </button>
+
+            <a
+              href="tel:+917711889955"
+              className="flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl font-medium text-sm shadow-md shadow-indigo-100 transition hover:scale-[1.02] active:scale-95"
+            >
+              <Phone className="w-4 h-4 text-indigo-100" />
+              <div className="text-left leading-tight">
+                <span className="block text-[10px] text-indigo-200 uppercase font-bold tracking-wider">NARRI ANEL KKUMAR</span>
+                <span className="text-xs font-mono font-bold">+91 7711889955</span>
+              </div>
+            </a>
+          </div>
+
+          <div className="flex md:hidden items-center space-x-2">
+            <button
+              onClick={() => setLang(lang === 'te' ? 'en' : 'te')}
+              className="p-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200"
+            >
+              {lang === 'te' ? 'EN' : 'తెలుగు'}
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none"
+            >
+              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      {mobileMenuOpen && (
+        <div className="lg:hidden bg-white border-b border-slate-200 px-4 pt-2 pb-6 space-y-2">
+          {navLinks.map((link) => (
+            <button
+              key={link.id}
+              onClick={() => handleNavClick(link.id)}
+              className={`w-full text-left px-4 py-3 rounded-lg text-base font-semibold transition ${
+                activeTab === link.id
+                  ? 'bg-indigo-600 text-white'
+                  : 'text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              {lang === 'te' ? link.labelTe : link.labelEn}
+            </button>
+          ))}
+          <div className="pt-4 border-t border-slate-200">
+            <a
+              href="tel:+917711889955"
+              className="flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white w-full py-3 rounded-xl font-bold shadow-md shadow-indigo-100"
+            >
+              <Phone className="w-5 h-5" />
+              <span>Call Narri Anel Kkumar: +91 7711889955</span>
+            </a>
+          </div>
+        </div>
+      )}
+    </header>
+  );
+};
+```[cite: 1]
+
+---
+
+### 🚀 7. `src/components/Hero.tsx`
+```typescript
 import React from 'react';
 import { Compass, Zap, ShieldCheck, Play, Download, ArrowRight, CheckCircle2, Youtube, Calculator, Layers } from 'lucide-react';
 
@@ -11,12 +1473,10 @@ interface HeroProps {
 export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorClick, onDownloadClick }) => {
   return (
     <section id="hero" className="relative overflow-hidden bg-slate-50 text-slate-900 pt-12 pb-20 border-b border-slate-200">
-      {/* Background Decorative Grids */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#cbd5e1_1px,transparent_1px),linear-gradient(to_bottom,#cbd5e1_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30 pointer-events-none"></div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Top Announcement Badge */}
         <div className="flex justify-center mb-6">
           <div className="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-xs sm:text-sm font-bold uppercase tracking-wider shadow-sm">
             <Zap className="w-4 h-4 text-amber-600" />
@@ -28,7 +1488,6 @@ export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorCli
           </div>
         </div>
 
-        {/* Hero Main Heading */}
         <div className="text-center max-w-4xl mx-auto space-y-6">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight leading-tight">
             {lang === 'te' ? (
@@ -56,7 +1515,6 @@ export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorCli
             )}
           </p>
 
-          {/* Quick CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <button
               onClick={onSimulatorClick}
@@ -75,7 +1533,6 @@ export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorCli
             </button>
           </div>
 
-          {/* Key Feature Highlights Badges */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-10 border-t border-slate-200 text-left">
             <div className="p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition">
               <div className="flex items-center space-x-2 text-indigo-600 mb-2">
@@ -118,7 +1575,6 @@ export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorCli
             </div>
           </div>
 
-          {/* Author Credits Box */}
           <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center space-x-3 text-left">
               <div className="w-10 h-10 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-sm shrink-0">
@@ -157,3 +1613,669 @@ export const Hero: React.FC<HeroProps> = ({ lang, onExploreClick, onSimulatorCli
     </section>
   );
 };
+```[cite: 1]
+
+---
+
+### 🗺️ 8. `src/components/BhumithiComparison.tsx`
+```typescript
+import React from 'react';
+import { COMPARISON_FEATURES } from '../data/comparisonData';
+import { CheckCircle2, XCircle, AlertCircle, Sparkles, Zap, Trophy } from 'lucide-react';
+
+interface BhumithiComparisonProps {
+  lang: 'te' | 'en';
+}
+
+export const BhumithiComparison: React.FC<BhumithiComparisonProps> = ({ lang }) => {
+  return (
+    <section id="comparison" className="py-16 bg-slate-50 border-b border-slate-200 text-slate-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div className="text-center max-w-3xl mx-auto mb-12 space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider">
+            <Trophy className="w-4 h-4 text-amber-600" />
+            <span>{lang === 'te' ? 'సాఫ్ట్‌వేర్‌ల పోలిక (Comparison Matrix)' : 'Why Choose SEED CAD over Bhumithi'}</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+            {lang === 'te' ? (
+              <>
+                భూమితి సాఫ్ట్‌వేర్ (Bhumithi) కి మరియు <br className="hidden sm:inline" />
+                <span className="text-indigo-600">SEED CAD Super Master LISP</span> కి ఉన్న ప్రధాన తేడాలు
+              </>
+            ) : (
+              <>
+                Bhumithi Software vs. <span className="text-indigo-600">SEED CAD Super Master LISP</span>
+              </>
+            )}
+          </h2>
+          <p className="text-slate-600 text-sm sm:text-base">
+            {lang === 'te' 
+              ? 'తెలంగాణ ల్యాండ్ సర్వేయర్లకు భూమితి సాఫ్ట్‌వేర్‌లో వచ్చే ఇబ్బందులకు సీడ్ క్యాడ్ పరిష్కారం అందిస్తుంది.' 
+              : 'Detailed feature comparison showing why Telangana land surveyors prefer SEED CAD LISP for fast AutoCAD Tippon map generation.'}
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {COMPARISON_FEATURES.map((item, idx) => (
+            <div 
+              key={idx}
+              className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition"
+            >
+              <div className="md:col-span-4 flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-700 shrink-0 font-bold text-xs">
+                  0{idx + 1}
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {lang === 'te' ? item.featureTe : item.featureEn}
+                  </h3>
+                  <span className="text-xs text-slate-500 font-medium">
+                    {lang === 'te' ? item.featureEn : item.featureTe}
+                  </span>
+                </div>
+              </div>
+
+              <div className="md:col-span-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start space-x-3">
+                <XCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-red-700">
+                      Bhumithi Software
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-red-100 text-red-800 text-[10px] font-bold">
+                      {lang === 'te' ? 'ఇబ్బందులు' : 'Limitations'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 leading-relaxed font-normal">
+                    {lang === 'te' ? item.bhumithi.descriptionTe : item.bhumithi.descriptionEn}
+                  </p>
+                </div>
+              </div>
+
+              <div className="md:col-span-4 p-3.5 rounded-xl bg-indigo-50/80 border border-indigo-200 flex items-start space-x-3 shadow-sm">
+                <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+                      SEED CAD LISP
+                    </span>
+                    <span className="px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800 text-[10px] font-bold">
+                      {lang === 'te' ? 'మెరుగైనది' : 'Superior'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-800 leading-relaxed font-medium">
+                    {lang === 'te' ? item.seedCad.descriptionTe : item.seedCad.descriptionEn}
+                  </p>
+                </div>
+              </div>
+
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 p-6 rounded-xl bg-slate-800 text-white border border-slate-700 text-center space-y-3 shadow-md">
+          <div className="inline-flex items-center space-x-2 text-indigo-300 font-bold text-sm uppercase tracking-widest">
+            <Sparkles className="w-5 h-5 text-indigo-400" />
+            <span>{lang === 'te' ? 'సారాంశం (Summary)' : 'Key Advantage'}</span>
+          </div>
+          <p className="text-slate-200 text-sm sm:text-base max-w-4xl mx-auto leading-relaxed">
+            {lang === 'te' ? (
+              'భూమితి సాఫ్ట్‌వేర్ యొక్క పరిమితులను అధిగమించి, ఆటోక్యాడ్‌లోనే నేరుగా రూపాయిలు-ఆణాలు ఎంటర్ చేస్తూ TIPPON మరియు TFC కమాండ్లతో సర్వేయర్లకు సమయాన్ని 80% ఆదా చేసే ఏకైక పరిష్కారం SEED CAD Super Master LISP.'
+            ) : (
+              'By bypassing Bhumithi\'s slow external export workflow, SEED CAD brings native Numpad Tippon creation and automated label updates directly into AutoCAD—saving up to 80% of drawing time for Telangana surveyors.'
+            )}
+          </p>
+        </div>
+
+      </div>
+    </section>
+  );
+};
+```[cite: 1]
+
+---
+
+### 🎮 9. `src/components/TipponSimulator.tsx`
+```typescript
+import React, { useState, useEffect, useRef } from 'react';
+import { TipponSegment } from '../types';
+import { Play, RotateCcw, Link2, CheckCircle, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, CornerDownLeft, Sparkles, Layers, Info } from 'lucide-react';
+
+interface TipponSimulatorProps {
+  lang: 'te' | 'en';
+}
+
+export const TipponSimulator: React.FC<TipponSimulatorProps> = ({ lang }) => {
+  const [inputVal, setInputVal] = useState<string>('15-5');
+  const [segments, setSegments] = useState<TipponSegment[]>([]);
+  const [currentPt, setCurrentPt] = useState<{ x: number; y: number }>({ x: 300, y: 300 });
+  const [isClosed, setIsClosed] = useState<boolean>(false);
+  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [logMessages, setLogMessages] = useState<string[]>(['[SYSTEM] Tippon Simulator initialized. Select direction key (8, 2, 4, 6) or enter Rupee-Annas.']);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const parseRupeeAnnasToMeters = (valStr: string): { rupees: number; annas: number; totalAnnas: number; links: number; meters: number; feet: number } => {
+    let rupees = 0;
+    let annas = 0;
+    const cleanStr = valStr.trim();
+
+    if (cleanStr.includes('-')) {
+      const parts = cleanStr.split('-');
+      rupees = parseFloat(parts[0]) || 0;
+      annas = parseFloat(parts[1]) || 0;
+    } else {
+      const num = parseFloat(cleanStr) || 0;
+      const totalAnnasFromMeters = (num * 5.0) / 3.143245866;
+      rupees = Math.floor(totalAnnasFromMeters / 16.0);
+      annas = Math.round(totalAnnasFromMeters % 16.0);
+      const links = num * 5.0;
+      return {
+        rupees,
+        annas,
+        totalAnnas: totalAnnasFromMeters,
+        links,
+        meters: num,
+        feet: num * 3.28084
+      };
+    }
+
+    const totalAnnas = rupees * 16 + annas;
+    const links = totalAnnas * 3.143245866;
+    const meters = links / 5.0;
+    const feet = meters * 3.28084;
+
+    return { rupees, annas, totalAnnas, links, meters, feet };
+  };
+
+  const handleAddSegment = (dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT', keyChar: string) => {
+    if (isClosed) {
+      setLogMessages(prev => [`[WARNING] Polygon is already closed with TFC. Clear canvas to start new Tippon.`, ...prev]);
+      return;
+    }
+
+    const conv = parseRupeeAnnasToMeters(inputVal);
+    if (conv.meters <= 0) {
+      setLogMessages(prev => [`[ERROR] Invalid distance input. Please use format like "15-5" or "12-8".`, ...prev]);
+      return;
+    }
+
+    const scale = 8;
+    let dx = 0;
+    let dy = 0;
+
+    if (dir === 'UP') dy = -conv.meters * scale;
+    if (dir === 'DOWN') dy = conv.meters * scale;
+    if (dir === 'LEFT') dx = -conv.meters * scale;
+    if (dir === 'RIGHT') dx = conv.meters * scale;
+
+    const nextPt = { x: currentPt.x + dx, y: currentPt.y + dy };
+
+    const newSeg: TipponSegment = {
+      id: Math.random().toString(36).substring(2, 9),
+      p1: { ...currentPt },
+      p2: { ...nextPt },
+      rawInput: inputVal,
+      rupees: conv.rupees,
+      annas: conv.annas,
+      meters: conv.meters,
+      feet: conv.feet,
+      direction: dir,
+      directionKey: keyChar
+    };
+
+    setSegments(prev => [...prev, newSeg]);
+    setCurrentPt(nextPt);
+
+    const logText = `[TIPPON] Drawn ${dir} (${keyChar}) -> ${inputVal} (${conv.meters.toFixed(2)}m / ${conv.feet.toFixed(1)}ft / ${conv.links.toFixed(1)} links)`;
+    setLogMessages(prev => [logText, ...prev]);
+  };
+
+  const handleTFCConnect = () => {
+    if (segments.length < 2) {
+      setLogMessages(prev => [`[TFC] Need at least 2 segments to connect/close polygon.`, ...prev]);
+      return;
+    }
+    if (isClosed) return;
+
+    const startPt = segments[0].p1;
+    const dx = startPt.x - currentPt.x;
+    const dy = startPt.y - currentPt.y;
+    const canvasDist = Math.sqrt(dx * dx + dy * dy);
+    const scale = 8;
+    const meters = canvasDist / scale;
+
+    const totalAnnas = (meters * 5.0) / 3.143245866;
+    let rupees = Math.floor(totalAnnas / 16.0);
+    let annas = Math.round(totalAnnas % 16.0);
+    if (annas === 16) {
+      rupees += 1;
+      annas = 0;
+    }
+
+    const rawInput = `${rupees}-${annas}`;
+    const feet = meters * 3.28084;
+
+    let dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT' = 'RIGHT';
+    if (Math.abs(dx) > Math.abs(dy)) {
+      dir = dx > 0 ? 'RIGHT' : 'LEFT';
+    } else {
+      dir = dy > 0 ? 'DOWN' : 'UP';
+    }
+
+    const closingSeg: TipponSegment = {
+      id: 'tfc-closing',
+      p1: { ...currentPt },
+      p2: { ...startPt },
+      rawInput,
+      rupees,
+      annas,
+      meters,
+      feet,
+      direction: dir,
+      directionKey: 'TFC'
+    };
+
+    setSegments(prev => [...prev, closingSeg]);
+    setCurrentPt(startPt);
+    setIsClosed(true);
+
+    setLogMessages(prev => [
+      `[TFC CONNECT] Gap filled! Closed polygon with final segment ${rawInput} (${meters.toFixed(2)}m). Labels auto-calculated.`,
+      ...prev
+    ]);
+  };
+
+  const handleUndo = () => {
+    if (segments.length === 0) return;
+    const newSegs = [...segments];
+    newSegs.pop();
+    setSegments(newSegs);
+    setIsClosed(false);
+    if (newSegs.length > 0) {
+      setCurrentPt({ ...newSegs[newSegs.length - 1].p2 });
+    } else {
+      setCurrentPt({ x: 300, y: 300 });
+    }
+    setLogMessages(prev => [`[UNDO] Removed last segment.`, ...prev]);
+  };
+
+  const handleReset = () => {
+    setSegments([]);
+    setCurrentPt({ x: 300, y: 300 });
+    setIsClosed(false);
+    setLogMessages(['[SYSTEM] Canvas cleared. Ready for new Tippon drawing.']);
+  };
+
+  const handleLoadPreset = (presetType: string) => {
+    handleReset();
+    setSelectedPreset(presetType);
+
+    let sampleInputs: { val: string; dir: 'UP' | 'DOWN' | 'LEFT' | 'RIGHT'; key: string }[] = [];
+
+    if (presetType === 'plot1') {
+      sampleInputs = [
+        { val: '15-5', dir: 'RIGHT', key: '6' },
+        { val: '12-8', dir: 'DOWN', key: '2' },
+        { val: '16-0', dir: 'LEFT', key: '4' },
+      ];
+    } else if (presetType === 'plot2') {
+      sampleInputs = [
+        { val: '18-4', dir: 'UP', key: '8' },
+        { val: '22-10', dir: 'RIGHT', key: '6' },
+        { val: '15-0', dir: 'DOWN', key: '2' },
+        { val: '20-8', dir: 'LEFT', key: '4' },
+      ];
+    }
+
+    let startPoint = { x: 250, y: 250 };
+    let cPt = { ...startPoint };
+    const scale = 8;
+    const newSegs: TipponSegment[] = [];
+
+    sampleInputs.forEach((item) => {
+      const conv = parseRupeeAnnasToMeters(item.val);
+      let dx = 0;
+      let dy = 0;
+      if (item.dir === 'UP') dy = -conv.meters * scale;
+      if (item.dir === 'DOWN') dy = conv.meters * scale;
+      if (item.dir === 'LEFT') dx = -conv.meters * scale;
+      if (item.dir === 'RIGHT') dx = conv.meters * scale;
+
+      const nextPt = { x: cPt.x + dx, y: cPt.y + dy };
+      newSegs.push({
+        id: Math.random().toString(36).substring(2, 9),
+        p1: { ...cPt },
+        p2: { ...nextPt },
+        rawInput: item.val,
+        rupees: conv.rupees,
+        annas: conv.annas,
+        meters: conv.meters,
+        feet: conv.feet,
+        direction: item.dir,
+        directionKey: item.key
+      });
+      cPt = nextPt;
+    });
+
+    setSegments(newSegs);
+    setCurrentPt(cPt);
+    setLogMessages(prev => [`[PRESET] Loaded ${presetType} with ${sampleInputs.length} segments. Click TFC to auto-connect.`, ...prev]);
+  };
+
+  const computePolygonArea = () => {
+    if (segments.length < 3) return { sqMeters: 0, sqFeet: 0, acres: 0, gunthas: 0 };
+
+    const points = [segments[0].p1, ...segments.map(s => s.p2)];
+    let areaPixels = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      areaPixels += (points[i].x * points[i + 1].y) - (points[i + 1].x * points[i].y);
+    }
+    areaPixels = Math.abs(areaPixels) / 2.0;
+
+    const sqMeters = areaPixels / 64.0;
+    const sqFeet = sqMeters * 10.7639;
+
+    const totalGunthas = sqMeters / 101.171144375;
+    const acres = Math.floor(totalGunthas / 40);
+    const gunthas = totalGunthas % 40;
+
+    return { sqMeters, sqFeet, acres, gunthas };
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 1;
+    const gridSize = 25;
+    for (let x = 0; x < canvas.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, canvas.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < canvas.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(canvas.width, y);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = '#334155';
+    ctx.beginPath();
+    ctx.moveTo(300, 0);
+    ctx.lineTo(300, canvas.height);
+    ctx.moveTo(0, 300);
+    ctx.lineTo(canvas.width, 300);
+    ctx.stroke();
+
+    segments.forEach((seg, idx) => {
+      ctx.strokeStyle = seg.directionKey === 'TFC' ? '#f59e0b' : '#10b981';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(seg.p1.x, seg.p1.y);
+      ctx.lineTo(seg.p2.x, seg.p2.y);
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(seg.p1.x, seg.p1.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(seg.p2.x, seg.p2.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '10px monospace';
+      ctx.fillText(`P${idx + 1}`, seg.p1.x + 6, seg.p1.y - 6);
+
+      const midX = (seg.p1.x + seg.p2.x) / 2;
+      const midY = (seg.p1.y + seg.p2.y) / 2;
+
+      ctx.fillStyle = seg.directionKey === 'TFC' ? '#fbbf24' : '#6ee7b7';
+      ctx.font = 'bold 11px Inter, sans-serif';
+      const labelText = `${seg.rawInput} (${seg.meters.toFixed(2)}m)`;
+
+      const textWidth = ctx.measureText(labelText).width;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fillRect(midX - textWidth / 2 - 4, midY - 14, textWidth + 8, 18);
+      ctx.strokeStyle = seg.directionKey === 'TFC' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(16, 185, 129, 0.5)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(midX - textWidth / 2 - 4, midY - 14, textWidth + 8, 18);
+
+      ctx.fillStyle = seg.directionKey === 'TFC' ? '#fbbf24' : '#34d399';
+      ctx.textAlign = 'center';
+      ctx.fillText(labelText, midX, midY - 1);
+      ctx.textAlign = 'left';
+    });
+
+    if (segments.length > 0) {
+      const lastPt = currentPt;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(lastPt.x, lastPt.y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#10b981';
+      ctx.beginPath();
+      ctx.arc(300, 300, 6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }, [segments, currentPt]);
+
+  const polygonArea = computePolygonArea();
+
+  return (
+    <section id="simulator" className="py-16 bg-slate-900 text-white border-b border-slate-800">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div className="text-center max-w-3xl mx-auto mb-10 space-y-4">
+          <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-bold uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span>{lang === 'te' ? 'ఇంటరాక్టివ్ టిప్పన్ సిమ్యులేటర్' : 'Interactive AutoCAD LISP Simulator'}</span>
+          </div>
+          <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+            {lang === 'te' ? 'TIPPON మరియు TFC కమాండ్లను ఇక్కడ పరీక్షించండి' : 'Test TIPPON & TFC Commands Live'}
+          </h2>
+          <p className="text-slate-400 text-sm sm:text-base">
+            {lang === 'te' 
+              ? 'రూపాయిలు-ఆణాలు ఎంటర్ చేసి, నంపాడ్ బటన్లు (8, 2, 4, 6) నొక్కుతూ టిప్పన్ పటం గీసి చూడండి.' 
+              : 'Simulate direct Rupees-Annas entry and Numpad direction keys to draw Tippon survey lines instantly.'}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          <div className="lg:col-span-5 space-y-6">
+            
+            <div className="p-6 rounded-2xl bg-slate-800 border border-slate-700 shadow-xl space-y-5">
+              <h3 className="text-lg font-bold text-white flex items-center space-x-2">
+                <Layers className="w-5 h-5 text-indigo-400" />
+                <span>{lang === 'te' ? '1. కొలత మరియు దిశ ఎంచుకోండి' : '1. Enter Value & Direction'}</span>
+              </h3>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+                  {lang === 'te' ? 'రూపాయిలు - ఆణాలు (Rupees-Annas / e.g. 15-5)' : 'Rupee-Annas Input (e.g. 15-5)'}
+                </label>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={inputVal}
+                    onChange={(e) => setInputVal(e.target.value)}
+                    placeholder="15-5"
+                    className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white font-mono text-base font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                  <div className="px-3 py-3 bg-slate-900 border border-slate-700 rounded-xl text-xs text-slate-400 font-mono flex items-center">
+                    {parseRupeeAnnasToMeters(inputVal).meters.toFixed(2)}m
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  {lang === 'te' ? 'నంపాడ్ దిశల బటన్లు (Numpad Controls)' : 'Numpad Direction Controls'}
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div></div>
+                  <button
+                    onClick={() => handleAddSegment('UP', '8')}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-md shadow-indigo-900/50 group"
+                  >
+                    <ArrowUp className="w-5 h-5 mb-1 group-hover:-translate-y-0.5 transition" />
+                    <span className="text-xs">8 (UP)</span>
+                  </button>
+                  <div></div>
+
+                  <button
+                    onClick={() => handleAddSegment('LEFT', '4')}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition group"
+                  >
+                    <ArrowLeft className="w-5 h-5 mb-1 group-hover:-translate-x-0.5 transition" />
+                    <span className="text-xs">4 (LEFT)</span>
+                  </button>
+                  <div className="flex items-center justify-center bg-slate-900 rounded-xl border border-slate-700 text-xs font-mono text-slate-400 font-bold">
+                    KEY
+                  </div>
+                  <button
+                    onClick={() => handleAddSegment('RIGHT', '6')}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition group"
+                  >
+                    <ArrowRight className="w-5 h-5 mb-1 group-hover:translate-x-0.5 transition" />
+                    <span className="text-xs">6 (RIGHT)</span>
+                  </button>
+
+                  <div></div>
+                  <button
+                    onClick={() => handleAddSegment('DOWN', '2')}
+                    className="flex flex-col items-center justify-center p-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-md shadow-indigo-900/50 group"
+                  >
+                    <ArrowDown className="w-5 h-5 mb-1 group-hover:translate-y-0.5 transition" />
+                    <span className="text-xs">2 (DOWN)</span>
+                  </button>
+                  <div></div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-700 flex flex-wrap gap-2">
+                <button
+                  onClick={handleTFCConnect}
+                  disabled={segments.length < 2 || isClosed}
+                  className="flex-1 flex items-center justify-center space-x-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 px-4 rounded-xl transition text-sm shadow-md"
+                >
+                  <Link2 className="w-4 h-4" />
+                  <span>TFC (Close & Connect)</span>
+                </button>
+
+                <button
+                  onClick={handleUndo}
+                  className="p-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold transition"
+                  title="Undo Last"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-3 rounded-xl bg-rose-600/20 border border-rose-500/30 text-rose-300 hover:bg-rose-600/30 text-xs font-bold transition"
+                >
+                  Reset
+                </button>
+              </div>
+
+              <div className="pt-3 border-t border-slate-700 space-y-2">
+                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  {lang === 'te' ? 'నమూనా ప్లాట్లు లోడ్ చేయండి (Load Presets)' : 'Load Sample Plots'}
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => handleLoadPreset('plot1')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition ${
+                      selectedPreset === 'plot1' 
+                        ? 'bg-indigo-600 border-indigo-500 text-white' 
+                        : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {lang === 'te' ? 'ప్లాట్ 1 (3 సెగ్మెంట్స్)' : 'Plot 1 (3 Segments)'}
+                  </button>
+                  <button
+                    onClick={() => handleLoadPreset('plot2')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold border transition ${
+                      selectedPreset === 'plot2' 
+                        ? 'bg-indigo-600 border-indigo-500 text-white' 
+                        : 'bg-slate-900 border-slate-700 text-slate-300 hover:bg-slate-700'
+                    }`}
+                  >
+                    {lang === 'te' ? 'ప్లాట్ 2 (4 సెగ్మెంట్స్)' : 'Plot 2 (4 Segments)'}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {segments.length >= 3 && (
+              <div className="p-5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 text-emerald-200 space-y-2">
+                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-sm">
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{lang === 'te' ? 'ఆటోమేటిక్ విస్తీర్ణ లెక్కింపు (ACGT Area)' : 'Auto Calculated Plot Area'}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-sm">
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-emerald-500/20">
+                    <span className="block text-[10px] text-slate-400 uppercase">Acres & Gunthas</span>
+                    <span className="font-bold text-white">Ac. 0{polygonArea.acres} - {polygonArea.gunthas.toFixed(2)} Gts</span>
+                  </div>
+                  <div className="bg-slate-900/80 p-2.5 rounded-xl border border-emerald-500/20">
+                    <span className="block text-[10px] text-slate-400 uppercase">Square Meters</span>
+                    <span className="font-bold text-white">{polygonArea.sqMeters.toFixed(2)} Sq.m</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+
+          <div className="lg:col-span-7 space-y-4">
+            <div className="rounded-2xl bg-slate-950 border border-slate-800 overflow-hidden shadow-2xl relative">
+              
+              <div className="absolute top-3 left-3 px-3 py-1 rounded bg-slate-900/90 border border-slate-700 text-[10px] font-mono text-slate-400 flex items-center space-x-2 z-10">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>AutoCAD Viewport (Scale: 1m = 8px)</span>
+              </div>
+
+              <canvas
+                ref={canvasRef}
+                width={600}
+                height={450}
+                className="w-full h-auto block cursor-crosshair"
+              />
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-800 border border-slate-700 font-mono text-xs space-y-1.5 max-h-36 overflow-y-auto">
+              <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Command Line Output Log
+              </span>
+              {logMessages.map((msg, i) => (
+                <div key={i} className={`text-xs ${i === 0 ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
+                  {msg}
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+  );
+};
+```[cite: 1]
